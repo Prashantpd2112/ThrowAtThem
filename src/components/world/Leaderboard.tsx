@@ -31,8 +31,8 @@ export function Leaderboard() {
   return (
     <div className="card flex flex-col h-full overflow-hidden">
       <div className="flex items-center justify-between px-3 pt-3 pb-2 border-b border-wt-border dark:border-white/5">
-        <h3 className="text-xs font-bold text-wt-text dark:text-white">🏆 Leaderboard</h3>
-        <div className="flex gap-0.5 bg-gray-100 dark:bg-white/5 rounded-lg p-0.5">
+        <h3 className="text-xs font-bold text-wt-text dark:text-black">🏆 Leaderboard</h3>
+        <div className="flex gap-0.5 bg-gray-100 dark:bg-black/5 rounded-lg p-0.5">
           {PERIODS.map((period) => (
             <button
               key={period.value}

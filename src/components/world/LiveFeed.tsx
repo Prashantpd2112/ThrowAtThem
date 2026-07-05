@@ -53,8 +53,8 @@ export function LiveFeed() {
 
   return (
     <div className="card flex flex-col h-full overflow-hidden">
-      <div className="flex items-center justify-between px-3 pt-3 pb-2 border-b border-wt-border dark:border-white/5">
-        <h3 className="text-xs font-bold text-wt-text dark:text-white flex items-center gap-1.5">
+      <div className="flex items-center justify-between px-3 pt-3 pb-2 border-b border-wt-border dark:border-black/12">
+        <h3 className="text-xs font-bold text-wt-text dark:text-black flex items-center gap-1.5">
           <span className="w-1.5 h-1.5 bg-green-500 rounded-full" />
           Live Feed
         </h3>

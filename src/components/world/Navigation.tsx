@@ -67,7 +67,7 @@ export function Navigation({ nickname, countryFlag, onlineCount = 0, onSearchCou
           {/* User badge */}
           <div className="flex items-center gap-2 px-2.5 py-1 rounded-lg bg-orange-50 dark:bg-wt-orange/10">
             <span className="text-xs leading-none">{countryFlag}</span>
-            <span className="text-xs font-semibold text-wt-text dark:text-gray-200 truncate max-w-[80px]">
+            <span className="text-xs font-semibold text-wt-text dark:text-black truncate max-w-[80px]">
               {nickname}
             </span>
           </div>
@@ -75,7 +75,7 @@ export function Navigation({ nickname, countryFlag, onlineCount = 0, onSearchCou
           {/* Logout button */}
           <button
             onClick={onLogout}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium text-wt-muted hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+            className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-gray-200 text-xs font-medium text-wt-muted hover:text-red-500 hover:bg-red-50 hover:border-red-300 dark:border-gray-600 dark:hover:bg-red-500/10 dark:hover:border-red-500/40 transition-colors"
             title="Logout"
           >
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
