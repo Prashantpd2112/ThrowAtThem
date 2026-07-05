@@ -1,0 +1,31 @@
+{
+  "version": 1.1,
+  "atDirectives": [
+    {
+      "name": "@theme",
+      "description": "Define the theme for Tailwind CSS v4. Use this directive to customize colors, fonts, animations, and other design tokens.",
+      "references": [
+        {
+          "name": "Tailwind CSS v4 Theme Documentation",
+          "url": "https://tailwindcss.com/docs/theme"
+        }
+      ]
+    },
+    {
+      "name": "@keyframes",
+      "description": "Define custom keyframe animations that can be used with Tailwind's animate- utility."
+    },
+    {
+      "name": "@import",
+      "description": "Import other CSS files, including Tailwind's base styles with `@import \"tailwindcss\"`."
+    },
+    {
+      "name": "@variant",
+      "description": "Define custom variants in Tailwind CSS v4."
+    },
+    {
+      "name": "@utility",
+      "description": "Define custom utilities in Tailwind CSS v4."
+    }
+  ]
+}

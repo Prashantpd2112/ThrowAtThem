@@ -1,0 +1,139 @@
+@import "tailwindcss";
+
+/* ── Custom Theme ── */
+@theme {
+  --color-wt-blue: #3B82F6;
+  --color-wt-sky: #7DD3FC;
+  --color-wt-green: #22C55E;
+  --color-wt-orange: #F97316;
+  --color-wt-yellow: #EAB308;
+  --color-wt-purple: #A855F7;
+  --color-wt-pink: #EC4899;
+  --color-wt-cream: #FEF9EF;
+  --color-wt-dark: #0F172A;
+  --color-wt-darkcard: #1E293B;
+  --color-wt-surface: #F8FAFC;
+  --color-wt-border: #E2E8F0;
+  --color-wt-muted: #64748B;
+  --color-wt-text: #1E293B;
+  --color-wt-card: #FFFFFF;
+
+  --font-family-display: "Fredoka", "Comic Sans MS", cursive, sans-serif;
+  --font-family-body: "Nunito", system-ui, sans-serif;
+
+  --animate-float: float 6s ease-in-out infinite;
+  --animate-wiggle: wiggle 0.5s ease-in-out;
+  --animate-fade-in: fadeIn 0.4s ease-out;
+  --animate-slide-up: slideUp 0.4s ease-out;
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-15px); }
+  }
+  @keyframes wiggle {
+    0%, 100% { transform: rotate(0deg); }
+    25% { transform: rotate(-8deg); }
+    75% { transform: rotate(8deg); }
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+}
+
+/* ── Base Styles ── */
+:root {
+  --viewport-height: 100dvh;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-family-body);
+  color: var(--color-wt-text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.dark body {
+  color: #E2E8F0;
+  color-scheme: dark;
+}
+
+/* ── Card Styles ── */
+.card {
+  background: var(--color-wt-card);
+  border-radius: 16px;
+  border: 1px solid var(--color-wt-border);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04);
+  border-color: #CBD5E1;
+}
+
+.dark .card {
+  background: var(--color-wt-darkcard);
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.dark .card:hover {
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+/* ── Glass Styles (for specific use cases only) ── */
+.glass {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.glass-strong {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--color-wt-border);
+}
+
+.dark .glass-strong {
+  background: rgba(15, 23, 42, 0.95);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar {
+  width: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.12);
+  border-radius: 2px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* ── Selection ── */
+::selection {
+  background: rgba(249, 115, 22, 0.2);
+  color: inherit;
+}

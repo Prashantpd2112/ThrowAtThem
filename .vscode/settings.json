@@ -1,0 +1,21 @@
+{
+  // Enable Tailwind CSS IntelliSense extension for v4 support (recommended)
+  "tailwindCSS.experimental.classRegex": [],
+  "tailwindCSS.includeLanguages": {
+    "typescript": "javascript",
+    "typescriptreact": "javascript"
+  },
+
+  // Configure CSS language server to recognize Tailwind v4 custom at-rules
+  "css.customData": [".vscode/tailwind.css-data.json"],
+
+  // Disable the built-in CSS lint for unknown at-rules when Tailwind extension is active
+  "css.lint.unknownAtRules": "ignore",
+
+  // TypeScript settings
+  "typescript.enablePromptUseWorkspaceTsdk": true,
+  "typescript.tsdk": "node_modules/typescript/lib",
+
+  // Ensure the project's TypeScript version is used
+  "typescript.preferences.autoImportFileExcludePatterns": []
+}
