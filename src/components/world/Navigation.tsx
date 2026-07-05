@@ -96,7 +96,7 @@ export function Navigation({ nickname, countryFlag, onlineCount = 0, onSearchCou
             onSearchCountry(e.target.value);
           }}
           placeholder="Find a country..."
-          className="w-full px-3 py-1.5 pl-8 rounded-lg bg-wt-surface dark:bg-white/5 border border-wt-border dark:border-white/10 focus:border-wt-orange outline-none transition-colors text-sm text-wt-text dark:text-white placeholder-wt-muted"
+          className="w-full px-3 py-1.5 pl-8 rounded-lg bg-wt-surface dark:bg-white/5 border border-gray-300 dark:border-gray-600 focus:border-wt-orange outline-none transition-colors text-sm text-wt-text dark:text-white placeholder-wt-muted"
         />
       </div>
     </nav>
