@@ -144,17 +144,48 @@ export const getLeaderboard = async (timePeriod: "daily" | "weekly" | "all_time"
   return { countryLeaderboard, objectLeaderboard };
 };
 
-// Export for direct use (will throw if not configured at runtime, only called from client)
-export const supabase = new Proxy({} as SupabaseClient, {
-  get(_, prop) {
-    if (!isConfigured) {
-      throw new Error(
-        "Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in your .env.local file."
-      );
-    }
-    const client = getClient();
-    return (client as any)[prop];
-  },
-});
+// Create a mock supabase client that returns empty results when not configured
+function createMockSupabase(): SupabaseClient {
+  const mockResponse = (data: any = []) => ({
+    data,
+    error: null,
+    count: 0,
+    status: 200,
+    statusText: "OK",
+  });
 
-export { getClient as getSupabaseClient };
+  const mockQuery = {
+    select: () => mockQuery,
+    from: () => mockQuery,
+    eq: () => mockQuery,
+    gte: () => mockQuery,
+    order: () => mockQuery,
+    limit: () => mockQuery,
+    insert: () => Promise.resolve(mockResponse()),
+    then: (resolve: any) => resolve(mockResponse([])),
+  };
+
+  return new Proxy({} as SupabaseClient, {
+    get(_, prop) {
+      if (prop === "then") return undefined;
+      if (prop === "from") return () => mockQuery;
+      if (prop === "channel") return () => ({ on: () => ({ subscribe: () => {} }) });
+      if (prop === "removeChannel") return () => {};
+      if (prop === "removeAllChannels") return () => {};
+      return () => mockQuery;
+    },
+  });
+}
+
+// Export supabase client — gracefully falls back to mock if not configured
+export const supabase = isConfigured ? getClient() : createMockSupabase();
+
+// Only export getSupabaseClient if configured (avoids the throwing getClient)
+export const getSupabaseClient = () => {
+  if (!isConfigured) {
+    console.warn("Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in your .env.local file.");
+    return createMockSupabase();
+  }
+  return getClient();
+};
+

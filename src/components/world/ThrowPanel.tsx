@@ -25,62 +25,91 @@ export function ThrowPanel({
   const currentObject = THROWABLE_OBJECTS.find((o) => o.id === selectedObject);
 
   return (
-    <div className="card p-3 space-y-3">
+    <div className="glass-card p-4 space-y-4">
+      {/* Section heading */}
+      <div className="flex items-center gap-2 pb-1">
+        <div className="w-1.5 h-5 rounded-full bg-gradient-to-b from-orange-500 to-pink-500" />
+        <h3 className="text-xs font-bold text-gray-800 dark:text-gray-100">Throw Configuration</h3>
+      </div>
+
       {/* Target Country */}
       <div>
-        <label className="block text-[11px] font-semibold text-wt-muted uppercase tracking-wider mb-1.5">
-          Target
+        <label className="block text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-2">
+          Target Country
         </label>
         {targetCountry ? (
           <motion.div
             key={targetCountry.code}
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="flex items-center gap-2 px-3 py-2 rounded-xl bg-orange-50 dark:bg-wt-orange/10 border border-orange-200 dark:border-wt-orange/20"
+            className="flex items-center gap-3 px-3.5 py-2.5 rounded-2xl bg-white/80 dark:bg-white/10 border border-gray-200 dark:border-white/10"
           >
-            <span className="text-lg">{targetCountry.flag}</span>
-            <span className="font-semibold text-sm text-wt-text dark:text-white truncate">
-              {targetCountry.name}
-            </span>
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-orange-100 to-pink-100 dark:from-orange-900/30 dark:to-pink-900/30 flex items-center justify-center">
+              <span className="text-lg">{targetCountry.flag}</span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-gray-800 dark:text-gray-100 truncate">{targetCountry.name}</p>
+              <p className="text-[10px] text-gray-400 dark:text-gray-500">{targetCountry.code}</p>
+            </div>
+            <motion.div
+              className="w-2 h-2 rounded-full bg-green-500"
+              animate={{ opacity: [0.5, 1, 0.5] }}
+              transition={{ duration: 2, repeat: Infinity }}
+            />
           </motion.div>
         ) : (
-          <div className="px-3 py-2 rounded-xl bg-gray-50 dark:bg-white/5 border border-dashed border-gray-200 dark:border-white/10">
-            <p className="text-xs text-wt-muted italic">Click a country on the map</p>
+          <div className="flex items-center gap-3 px-3.5 py-3 rounded-2xl bg-gray-50 dark:bg-white/5 border border-dashed border-gray-200 dark:border-white/10">
+            <div className="w-9 h-9 rounded-xl bg-gray-100 dark:bg-white/10 flex items-center justify-center">
+              <span className="text-lg opacity-40">🌍</span>
+            </div>
+            <p className="text-xs text-gray-500 dark:text-gray-400 italic">Click a country on the map</p>
           </div>
         )}
       </div>
 
       {/* Object Selector */}
       <div>
-        <label className="block text-[11px] font-semibold text-wt-muted uppercase tracking-wider mb-1.5">
-          Object
-        </label>
-        <div className="grid grid-cols-4 gap-1.5">
+        <div className="flex items-center justify-between mb-2">
+          <label className="block text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">
+            Throw Object
+          </label>
+          {currentObject && (
+            <span className="text-[10px] text-gray-400 dark:text-gray-500 font-medium">
+              {currentObject.description}
+            </span>
+          )}
+        </div>
+        <div className="grid grid-cols-4 gap-2">
           {THROWABLE_OBJECTS.map((obj) => (
             <motion.button
               key={obj.id}
-              whileHover={{ scale: 1.1, y: -1 }}
-              whileTap={{ scale: 0.9 }}
+              whileHover={{ scale: 1.05, y: -2 }}
+              whileTap={{ scale: 0.92 }}
               onClick={() => onObjectChange(obj.id)}
               className={`
-                relative flex flex-col items-center gap-0.5 p-1.5 rounded-lg border transition-all duration-150
+                relative flex flex-col items-center gap-1 py-2.5 px-1 rounded-2xl transition-all duration-200
                 ${
                   selectedObject === obj.id
-                    ? "border-wt-orange bg-orange-50 dark:bg-wt-orange/10 shadow-sm"
-                    : "border-gray-200 dark:border-white/10 hover:border-gray-300 dark:hover:border-white/20 bg-white dark:bg-white/5"
+                    ? "object-tile selected"
+                    : "object-tile"
                 }
               `}
             >
-              <span className="text-lg leading-none">{obj.emoji}</span>
-              <span className="text-[9px] font-medium text-wt-text dark:text-gray-300 truncate w-full text-center leading-tight">
+              <span className="text-xl leading-none">{obj.emoji}</span>
+              <span className="text-[9px] font-semibold text-gray-700 dark:text-gray-200 truncate w-full text-center leading-tight">
                 {obj.name}
               </span>
               {selectedObject === obj.id && (
-                <div className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-wt-orange rounded-full flex items-center justify-center">
-                  <svg className="w-2 h-2 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <motion.div
+                  layoutId="selectedObject"
+                  className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-gradient-to-br from-orange-500 to-pink-500 rounded-full flex items-center justify-center shadow-md"
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                >
+                  <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                   </svg>
-                </div>
+                </motion.div>
               )}
             </motion.button>
           ))}
@@ -89,9 +118,14 @@ export function ThrowPanel({
 
       {/* Reason Box */}
       <div>
-        <label className="block text-[11px] font-semibold text-wt-muted uppercase tracking-wider mb-1.5">
-          Reason <span className="font-normal lowercase text-wt-muted">(optional)</span>
-        </label>
+        <div className="flex items-center justify-between mb-2">
+          <label className="block text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">
+            Reason <span className="font-normal lowercase text-gray-400 dark:text-gray-500">(optional)</span>
+          </label>
+          <span className="text-[9px] font-semibold px-2 py-0.5 rounded-full text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-white/10">
+            {reason.length}/100
+          </span>
+        </div>
         <input
           type="text"
           value={reason}
@@ -99,13 +133,8 @@ export function ThrowPanel({
           placeholder='e.g. "For the sushi!"'
           maxLength={100}
           disabled={!selectedCountry}
-          className="w-full px-3 py-2 rounded-lg bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 focus:border-wt-orange dark:focus:border-wt-orange outline-none transition-colors text-sm text-wt-text dark:text-white placeholder-wt-muted disabled:opacity-40 disabled:cursor-not-allowed"
+          className="w-full h-11 px-4 rounded-2xl input-glass text-sm disabled:opacity-40 disabled:cursor-not-allowed"
         />
-        <div className="flex justify-end mt-0.5">
-          <span className={`text-[10px] font-medium ${reason.length > 80 ? "text-wt-orange" : "text-wt-muted"}`}>
-            {reason.length}/100
-          </span>
-        </div>
       </div>
     </div>
   );

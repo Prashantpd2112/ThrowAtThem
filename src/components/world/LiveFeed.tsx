@@ -52,63 +52,79 @@ export function LiveFeed() {
   };
 
   return (
-    <div className="card flex flex-col h-full overflow-hidden">
-      <div className="flex items-center justify-between px-3 pt-3 pb-2 border-b border-wt-border dark:border-black/12">
-        <h3 className="text-xs font-bold text-wt-text dark:text-black flex items-center gap-1.5">
-          <span className="w-1.5 h-1.5 bg-green-500 rounded-full" />
+    <div className="glass-card flex flex-col h-full overflow-hidden">
+      {/* Header */}
+      <div className="shrink-0 flex items-center justify-between px-4 pt-3 pb-2.5 border-b border-gray-200 dark:border-white/10">
+        <h3 className="text-xs font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
+          <span className="relative flex w-2 h-2">
+            <span className="absolute inline-flex w-full h-full rounded-full bg-green-400 opacity-75 animate-ping" />
+            <span className="relative inline-flex w-2 h-2 rounded-full bg-green-500" />
+          </span>
           Live Feed
         </h3>
-        <span className="text-[10px] font-medium text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-white/5 px-2 py-0.5 rounded-full">
-          {throws.length}
+        <span className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-white/10 px-2.5 py-0.5 rounded-full">
+          {throws.length} throws
         </span>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-2 py-1 space-y-0.5">
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto px-2 py-1.5 space-y-0.5">
         {isLoading ? (
-          <div className="flex items-center justify-center py-8">
-            <div className="flex gap-1">
+          <div className="flex flex-col items-center justify-center py-10">
+            <div className="flex gap-1.5 mb-3">
               {[0, 1, 2].map((i) => (
                 <motion.div
                   key={i}
-                  className="w-1.5 h-1.5 bg-wt-orange rounded-full"
-                  animate={{ y: [0, -5, 0] }}
+                  className="w-2 h-2 bg-orange-500 rounded-full"
+                  animate={{ y: [0, -6, 0] }}
                   transition={{ duration: 0.5, repeat: Infinity, delay: i * 0.12 }}
                 />
               ))}
             </div>
+            <span className="text-xs text-gray-400 dark:text-gray-500">Loading throws...</span>
           </div>
         ) : throws.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-8 text-center">
-            <p className="text-xs text-gray-500 dark:text-gray-400">No throws yet.</p>
-            <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Be the first! 🎯</p>
+          <div className="flex flex-col items-center justify-center py-10 text-center px-4">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-orange-100 to-pink-100 dark:from-orange-900/30 dark:to-pink-900/30 flex items-center justify-center mb-3">
+              <span className="text-2xl">🎯</span>
+            </div>
+            <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">No throws yet</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Click a country and throw something!</p>
           </div>
         ) : (
-          <AnimatePresence>
+          <AnimatePresence initial={false}>
             {throws.map((entry, i) => (
               <motion.div
                 key={entry.id}
                 initial={{ opacity: 0, x: -8 }}
                 animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: Math.min(i * 0.02, 0.3) }}
-                className="flex items-start gap-2 p-1.5 rounded-lg hover:bg-gray-50 dark:hover:bg-white/[0.03] transition-colors group"
+                transition={{ delay: Math.min(i * 0.015, 0.25) }}
+                className="feed-entry flex items-start gap-2.5 p-2"
               >
-                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-wt-blue to-wt-purple flex items-center justify-center text-white text-[10px] font-bold shrink-0">
+                {/* Avatar */}
+                <div className="w-7 h-7 rounded-xl bg-gradient-to-br from-orange-500 to-pink-500 flex items-center justify-center text-white text-[11px] font-bold shrink-0">
                   {entry.nickname.charAt(0).toUpperCase()}
                 </div>
+
+                {/* Content */}
                 <div className="flex-1 min-w-0">
-                  <p className="text-[11px] text-wt-text dark:text-gray-200 leading-snug">
-                    <span className="font-semibold text-wt-orange">{entry.nickname}</span>
-                    {" "}{entry.object}{" "}
-                    <span className="text-wt-muted font-medium">→</span>{" "}
-                    <span className="font-medium text-wt-blue">{entry.country_name}</span>
+                  <p className="text-xs leading-snug text-gray-800 dark:text-gray-100">
+                    <span className="font-bold text-orange-500">{entry.nickname}</span>
+                    <span className="text-gray-300 dark:text-gray-600 mx-1">→</span>
+                    <span className="font-semibold">{entry.country_name}</span>
                   </p>
-                  {entry.reason && (
-                    <p className="text-[10px] text-wt-muted mt-px italic truncate">
-                      &ldquo;{entry.reason}&rdquo;
-                    </p>
-                  )}
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <span className="text-sm leading-none">{entry.object}</span>
+                    {entry.reason && (
+                      <span className="text-[10px] text-gray-500 dark:text-gray-400 italic truncate">
+                        &ldquo;{entry.reason}&rdquo;
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <span className="text-[9px] text-wt-muted/60 shrink-0 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+
+                {/* Time */}
+                <span className="text-[9px] text-gray-400 dark:text-gray-500 font-medium shrink-0 mt-0.5">
                   {formatRelativeTime(entry.created_at)}
                 </span>
               </motion.div>

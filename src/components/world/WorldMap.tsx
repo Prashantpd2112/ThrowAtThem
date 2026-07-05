@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { COUNTRIES, getCountryByCode } from "@/data/countries";
 
@@ -19,7 +19,7 @@ export function WorldMap({ onCountryClick, selectedCountry, heatData, highlighte
     return Math.max(...Object.values(heatData), 1);
   }, [heatData]);
 
-  const getCountryColor = (code: string, baseColor: string): string => {
+  const getCountryColor = useCallback((code: string, baseColor: string): string => {
     if (selectedCountry === code) return "#F97316";
     if (highlightedCountry === code) return "#EF4444";
 
@@ -35,19 +35,20 @@ export function WorldMap({ onCountryClick, selectedCountry, heatData, highlighte
     }
 
     return baseColor;
-  };
+  }, [heatData, heatMax, selectedCountry, highlightedCountry]);
 
   const viewBox = "100 10 610 320";
 
   return (
-    <div className="relative w-full">
+    <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
       <svg
         viewBox={viewBox}
-        className="w-full h-auto drop-shadow-md"
-        style={{ filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.08))" }}
+        className="w-full h-auto max-w-full max-h-full"
+        preserveAspectRatio="xMidYMid meet"
+        style={{ filter: "drop-shadow(0 2px 8px rgba(0,0,0,0.06))" }}
       >
         {/* Ocean background */}
-        <rect x="80" y="0" width="650" height="350" rx="16" fill="#E0F2FE" className="dark:fill-[#1E3A5F]/40" />
+        <rect x="80" y="0" width="650" height="350" rx="16" fill="#E0F2FE" className="dark:fill-[#1E3A5F]/30" />
 
         {/* Decorative ocean waves */}
         {[40, 90, 140, 190, 240, 290].map((y, i) => (
@@ -56,9 +57,9 @@ export function WorldMap({ onCountryClick, selectedCountry, heatData, highlighte
             d={`M 80 ${y} Q 150 ${y - 8} 220 ${y} Q 290 ${y + 8} 360 ${y} Q 430 ${y - 8} 500 ${y} Q 570 ${y + 8} 640 ${y} Q 710 ${y - 8} 730 ${y}`}
             fill="none"
             stroke="#BAE6FD"
-            strokeWidth="1.5"
-            opacity={0.25 + i * 0.04}
-            className="dark:stroke-[#3B82F6]/15"
+            strokeWidth="1.2"
+            opacity={0.2 + i * 0.03}
+            className="dark:stroke-[#3B82F6]/10"
           />
         ))}
 
@@ -74,16 +75,16 @@ export function WorldMap({ onCountryClick, selectedCountry, heatData, highlighte
               {/* Shadow */}
               <path
                 d={country.path}
-                fill="rgba(0,0,0,0.08)"
+                fill="rgba(0,0,0,0.06)"
                 transform={`translate(1.5, 2)`}
-                className="dark:fill-white/5"
+                className="dark:fill-white/4"
               />
               {/* Country shape */}
               <motion.path
                 d={country.path}
                 fill={color}
                 stroke={isSelected ? "#F97316" : "white"}
-                strokeWidth={isSelected ? 2.5 : isHovered ? 2 : 1.5}
+                strokeWidth={isSelected ? 2.5 : isHovered ? 2 : 1.2}
                 strokeLinejoin="round"
                 strokeLinecap="round"
                 className="cursor-pointer"
@@ -110,19 +111,19 @@ export function WorldMap({ onCountryClick, selectedCountry, heatData, highlighte
                 <motion.g
                   initial={{ opacity: 0, y: -4 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.12 }}
+                  transition={{ duration: 0.15 }}
                 >
                   <rect
-                    x={country.coordinates.x - 22}
-                    y={country.coordinates.y - 20}
-                    width={44}
+                    x={country.coordinates.x - 24}
+                    y={country.coordinates.y - 22}
+                    width={48}
                     height={18}
-                    rx={5}
-                    fill="rgba(15,23,42,0.85)"
+                    rx={6}
+                    fill="rgba(15,23,42,0.9)"
                   />
                   <text
                     x={country.coordinates.x}
-                    y={country.coordinates.y - 7}
+                    y={country.coordinates.y - 9}
                     textAnchor="middle"
                     fill="white"
                     fontSize="8"
@@ -148,8 +149,8 @@ export function WorldMap({ onCountryClick, selectedCountry, heatData, highlighte
             fill="none"
             stroke="#BAE6FD"
             strokeWidth="0.4"
-            opacity={0.15}
-            className="dark:stroke-[#3B82F6]/10"
+            opacity={0.12}
+            className="dark:stroke-[#3B82F6]/8"
           />
         ))}
       </svg>
@@ -158,15 +159,17 @@ export function WorldMap({ onCountryClick, selectedCountry, heatData, highlighte
       <AnimatePresence>
         {hoveredCountry && !selectedCountry && (
           <motion.div
-            className="absolute top-1 left-1 card px-2.5 py-1.5 text-xs shadow-md"
+            className="absolute top-2 left-2 bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm px-3 py-1.5 text-xs rounded-xl shadow-lg border border-gray-200 dark:border-white/10 z-10"
             initial={{ opacity: 0, y: -6 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -6 }}
           >
-            {getCountryByCode(hoveredCountry)?.flag}{" "}
-            {getCountryByCode(hoveredCountry)?.name}
+            <span className="font-semibold text-gray-800 dark:text-gray-100">
+              {getCountryByCode(hoveredCountry)?.flag}{" "}
+              {getCountryByCode(hoveredCountry)?.name}
+            </span>
             {heatData && heatData[hoveredCountry] !== undefined && (
-              <span className="ml-1.5 text-wt-muted font-medium">
+              <span className="ml-2 text-orange-500 font-bold">
                 {heatData[hoveredCountry]}
               </span>
             )}
@@ -175,12 +178,14 @@ export function WorldMap({ onCountryClick, selectedCountry, heatData, highlighte
       </AnimatePresence>
 
       {/* Legend */}
-      <div className="absolute bottom-1 right-1 card px-2 py-1 text-[10px] flex items-center gap-1.5 shadow-sm">
-        <span className="text-wt-muted">Activity:</span>
-        <span className="w-2.5 h-2.5 rounded-sm bg-[#DCFCE7]" />
-        <span className="w-2.5 h-2.5 rounded-sm bg-[#FEF08A]" />
-        <span className="w-2.5 h-2.5 rounded-sm bg-[#FB923C]" />
-        <span className="w-2.5 h-2.5 rounded-sm bg-[#EF4444]" />
+      <div className="absolute bottom-2 right-2 bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm px-2.5 py-1.5 text-[10px] rounded-xl shadow-lg border border-gray-200 dark:border-white/10 flex items-center gap-2">
+        <span className="text-gray-500 dark:text-gray-400 font-medium">Activity</span>
+        <div className="flex items-center gap-1">
+          <span className="w-3 h-3 rounded-sm bg-[#DCFCE7] border border-white/30" />
+          <span className="w-3 h-3 rounded-sm bg-[#FEF08A] border border-white/30" />
+          <span className="w-3 h-3 rounded-sm bg-[#FB923C] border border-white/30" />
+          <span className="w-3 h-3 rounded-sm bg-[#EF4444] border border-white/30" />
+        </div>
       </div>
     </div>
   );
