@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Navigation } from "@/components/world/Navigation";
 import { WorldMap } from "@/components/world/WorldMap";
-import { ThrowPanel } from "@/components/world/ThrowPanel";
 import { LiveFeed } from "@/components/world/LiveFeed";
 import { Leaderboard } from "@/components/world/Leaderboard";
 import { CountryPopup } from "@/components/world/CountryPopup";
@@ -87,21 +86,42 @@ export default function WorldPage() {
         const normalized = query.toLowerCase().trim();
         const found = getCountryByCode(query.toUpperCase()) || getCountryByCode(query);
         if (found) {
+          // Highlight as suggestion only, don't auto-select
           setHighlightedCountry(found.code);
-          setSelectedCountry(found.code);
         } else {
           const foundByName = COUNTRIES.find(
             (c) => c.name.toLowerCase().includes(normalized) || c.code.toLowerCase() === normalized
           );
           if (foundByName) {
             setHighlightedCountry(foundByName.code);
-            setSelectedCountry(foundByName.code);
           } else {
             setHighlightedCountry(null);
           }
         }
       } else {
         setHighlightedCountry(null);
+      }
+    },
+    []
+  );
+
+  const handleSearchConfirm = useCallback(
+    (query: string) => {
+      const normalized = query.toLowerCase().trim();
+      const found = getCountryByCode(query.toUpperCase()) || getCountryByCode(query);
+      if (found) {
+        setSelectedCountry(found.code);
+        setHighlightedCountry(null);
+        setSearchQuery("");
+        return;
+      }
+      const foundByName = COUNTRIES.find(
+        (c) => c.name.toLowerCase().includes(normalized) || c.code.toLowerCase() === normalized
+      );
+      if (foundByName) {
+        setSelectedCountry(foundByName.code);
+        setHighlightedCountry(null);
+        setSearchQuery("");
       }
     },
     []
@@ -179,7 +199,10 @@ export default function WorldPage() {
           nickname={guest.nickname}
           countryFlag={guestCountry?.flag || "🌍"}
           onlineCount={onlineCount}
+          selectedCountryName={targetCountry?.name || null}
+          selectedCountryFlag={targetCountry?.flag || null}
           onSearchCountry={handleSearchCountry}
+          onSearchConfirm={handleSearchConfirm}
           onLogout={handleLogout}
         />
       </div>
@@ -198,162 +221,138 @@ export default function WorldPage() {
           <input
             type="text"
             value={searchQuery}
-            onChange={(e) => {
-              setSearchQuery(e.target.value);
-              handleSearchCountry(e.target.value);
-            }}
-            placeholder="Find a country..."
-            className="w-full h-10 pl-10 pr-4 rounded-xl input-glass text-sm"
+            onChange={(e) => handleSearchCountry(e.target.value)}
+            placeholder="Search countries..."
+            className="w-full h-10 pl-10 pr-4 rounded-full bg-white border border-[#E5E7EB] text-sm text-gray-900 placeholder-gray-400 shadow-sm focus:outline-none focus:border-[#F97316] focus:ring-2 focus:ring-orange-100"
           />
         </div>
       </div>
 
-      {/* Main content - fills remaining space, scroll if needed */}
-      <div className="flex-1 min-h-0 px-4 md:px-5 pb-4 md:pb-6">
+      {/* MAIN GRID */}
+      <div className="flex-1 min-h-0 px-3 md:px-4 pt-3 pb-3 md:pb-4">
         <div className="h-full grid grid-cols-1 md:grid-cols-12 gap-3 md:gap-4">
-
-          {/* LEFT SIDEBAR: Live Feed + Leaderboard */}
-          <div className="hidden md:flex flex-col gap-4 md:col-span-3 lg:col-span-2 min-h-0">
-            <div className="grow basis-0 min-h-0 overflow-hidden">
-              <LiveFeed />
-            </div>
-            <div className="grow-[0.6] basis-0 min-h-0 overflow-hidden">
+          {/* LEFT — Leaderboard */}
+          <div className="hidden md:flex md:col-span-3 min-h-0">
+            <div className="w-full min-h-0">
               <Leaderboard />
             </div>
           </div>
 
-          {/* CENTER: Map + Info + Throw Button */}
-          <div className="flex flex-col gap-3 md:col-span-6 lg:col-span-7 min-h-0">
-            {/* Map Container - takes remaining space */}
-            <div
-              ref={mapRef}
-              className="flex-1 min-h-0 glass-card p-1.5 flex items-center justify-center overflow-hidden"
-            >
-              <WorldMap
-                onCountryClick={(code) => {
-                  handleCountryClick(code);
-                  if (selectedCountry === code) {
-                    setCountryPopupCode(code);
-                    setShowCountryPopup(true);
-                  }
-                }}
-                selectedCountry={selectedCountry}
-                heatData={heatData}
-                highlightedCountry={highlightedCountry}
-              />
+          {/* CENTER — Map + Bottom Throw Bar */}
+          <div className="col-span-1 md:col-span-6 min-h-0 flex flex-col gap-3 md:gap-4">
+            {/* Map container - feels like one rounded unit */}
+            <div className="flex-1 min-h-0 relative overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white/70 backdrop-blur-sm shadow-[0_4px_20px_rgba(0,0,0,0.04)]">
+              <div ref={mapRef} className="absolute inset-0">
+                <WorldMap
+                  heatData={heatData}
+                  selectedCountry={selectedCountry}
+                  highlightedCountry={highlightedCountry}
+                  onCountryClick={handleCountryClick}
+                  onBackgroundClick={() => setSelectedCountry(null)}
+                />
+              </div>
+
             </div>
 
-            {/* Country info bar + Throw button row */}
-            <div className="shrink-0 flex items-center gap-3">
-              {selectedCountry && targetCountry ? (
-                <motion.div
-                  initial={{ opacity: 0, x: -8 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  className="flex items-center gap-2.5 px-3.5 py-2 rounded-2xl glass-card-subtle shrink-0"
-                >
-                  <span className="text-lg">{targetCountry.flag}</span>
-                  <span className="font-bold text-sm text-gray-800 dark:text-gray-100">{targetCountry.name}</span>
-                  <span className="text-[10px] text-gray-400 dark:text-gray-500">{targetCountry.code}</span>
-                  <button
-                    onClick={() => { setCountryPopupCode(selectedCountry); setShowCountryPopup(true); }}
-                    className="ml-1 text-[10px] font-bold text-blue-500 hover:text-orange-500 transition-colors"
-                  >
-                    Stats →
-                  </button>
-                </motion.div>
-              ) : (
-                <div className="flex items-center gap-2.5 px-3.5 py-2 rounded-2xl glass-card-subtle shrink-0">
-                  <div className="w-5 h-5 rounded-md bg-gray-100 dark:bg-white/10 flex items-center justify-center">
-                    <span className="text-xs opacity-40">🌍</span>
+            {/* BOTTOM BAR — Throw panel compact horizontal under the map */}
+            <div className="shrink-0">
+              <div className="rounded-2xl bg-white/85 backdrop-blur-sm border border-[#E5E7EB] shadow-[0_4px_20px_rgba(0,0,0,0.04)] p-3 md:p-4">
+                <div className="flex flex-col md:flex-row md:items-center gap-3">
+                  {/* Throw objects */}
+                  <div className="flex-1 min-w-0 flex items-center gap-2 overflow-x-auto scrollbar-none">
+                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest shrink-0 mr-1">Throw</span>
+                    <div className="flex items-center gap-1.5">
+                      {[
+                        { id: "tomato", emoji: "🍅", name: "Tomato" },
+                        { id: "snowball", emoji: "⛄", name: "Snowball" },
+                        { id: "flower", emoji: "🌸", name: "Flower" },
+                        { id: "pizza", emoji: "🍕", name: "Pizza" },
+                        { id: "rock", emoji: "🪨", name: "Rock" },
+                        { id: "love", emoji: "💖", name: "Love" },
+                        { id: "fireball", emoji: "🔥", name: "Fireball" },
+                        { id: "money", emoji: "💸", name: "Money" },
+                      ].map((obj) => {
+                        const active = selectedObject === obj.id;
+                        return (
+                          <button
+                            key={obj.id}
+                            onClick={() => setSelectedObject(obj.id)}
+                            title={obj.name}
+                            className={`relative w-9 h-9 rounded-xl flex items-center justify-center text-base transition-all duration-200 border ${
+                              active
+                                ? "bg-gradient-to-br from-orange-500 to-pink-500 border-transparent shadow-md scale-105"
+                                : "bg-white border-[#E5E7EB] hover:border-orange-300 hover:bg-orange-50"
+                            }`}
+                          >
+                            <span className="leading-none">{obj.emoji}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
-                  <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">Click a country to begin</span>
-                </div>
-              )}
 
-              {/* Desktop Throw button */}
-              <div className="flex-1 hidden md:block">
-                <button
-                  ref={throwBtnRef}
-                  onClick={() => handleThrow(selectedObject, reason)}
-                  disabled={!selectedCountry || isThrowing}
-                  className="btn-premium w-full h-12 flex items-center justify-center gap-2 text-base"
-                >
-                  {isThrowing ? (
-                    <span className="flex items-center justify-center gap-2.5">
-                      <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                      </svg>
-                      <span>Throwing...</span>
-                    </span>
-                  ) : (
-                    <span className="flex items-center justify-center gap-2.5">
-                      <span className="text-lg">🎯</span>
-                      <span>Throw!</span>
-                    </span>
-                  )}
-                </button>
+                  <div className="hidden md:block w-px h-10 bg-gray-200" />
+
+                  {/* Right: reason + throw button */}
+                  <div className="flex items-center gap-2 shrink-0">
+                    <input
+                      type="text"
+                      value={reason}
+                      onChange={(e) => setReason(e.target.value.slice(0, 60))}
+                      placeholder='Reason (optional)'
+                      maxLength={60}
+                      disabled={!selectedCountry}
+                      className="h-10 w-32 md:w-44 px-3 rounded-full bg-white border border-[#E5E7EB] text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#F97316] focus:ring-2 focus:ring-orange-100 disabled:opacity-50"
+                    />
+                    <motion.button
+                      ref={throwBtnRef}
+                      whileTap={{ scale: 0.95 }}
+                      disabled={!selectedCountry || isThrowing}
+                      onClick={() => handleThrow(selectedObject, reason)}
+                      className="h-10 px-4 md:px-5 rounded-full bg-gradient-to-r from-orange-500 to-pink-500 text-white text-sm font-bold shadow-md hover:shadow-lg transition-shadow disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+                    >
+                      {isThrowing ? (
+                        <>
+                          <motion.span
+                            animate={{ rotate: 360 }}
+                            transition={{ duration: 0.8, repeat: Infinity, ease: "linear" }}
+                            className="inline-block w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full"
+                          />
+                          <span>Throwing…</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>Throw!</span>
+                          <span className="text-base leading-none">🚀</span>
+                        </>
+                      )}
+                    </motion.button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* RIGHT PANEL: Throw Config */}
-          <div className="flex flex-col gap-3 md:col-span-3 min-h-0">
-            {/* Throw Panel - takes remaining space */}
-            <div className="flex-1 min-h-0 overflow-y-auto">
-              <ThrowPanel
-                selectedCountry={selectedCountry}
-                selectedObject={selectedObject}
-                reason={reason}
-                onObjectChange={setSelectedObject}
-                onReasonChange={setReason}
-                isThrowing={isThrowing}
-              />
-            </div>
-
-            {/* Mobile throw button */}
-            <div className="md:hidden shrink-0">
-              <button
-                onClick={() => handleThrow(selectedObject, reason)}
-                disabled={!selectedCountry || isThrowing}
-                className="btn-premium w-full h-12 flex items-center justify-center gap-2 text-base"
-              >
-                {isThrowing ? (
-                  <span className="flex items-center justify-center gap-2.5">
-                    <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                    </svg>
-                    <span>Throwing...</span>
-                  </span>
-                ) : (
-                  <span className="flex items-center justify-center gap-2.5">
-                    <span className="text-lg">🎯</span>
-                    <span>Throw!</span>
-                  </span>
-                )}
-              </button>
-            </div>
-          </div>
-
-          {/* Mobile: Live Feed + Leaderboard */}
-          <div className="md:hidden flex flex-col gap-3">
-            <div className="h-52">
+          {/* RIGHT — Live Feed */}
+          <div className="hidden md:flex md:col-span-3 min-h-0">
+            <div className="w-full min-h-0">
               <LiveFeed />
             </div>
-            <div className="h-52">
-              <Leaderboard />
-            </div>
           </div>
-
         </div>
+      </div>
+
+      {/* Mobile leaderboard/feed - below the map */}
+      <div className="md:hidden shrink-0 px-3 pb-3 grid grid-cols-2 gap-3">
+        <Leaderboard />
+        <LiveFeed />
       </div>
 
       {/* Country Popup */}
       <CountryPopup
-        countryCode={countryPopupCode}
         isOpen={showCountryPopup}
-        onClose={() => { setShowCountryPopup(false); setCountryPopupCode(null); }}
+        countryCode={countryPopupCode}
+        onClose={() => setShowCountryPopup(false)}
       />
     </div>
   );

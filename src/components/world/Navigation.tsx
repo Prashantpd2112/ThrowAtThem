@@ -1,119 +1,195 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { motion } from "framer-motion";
+import { COUNTRIES, getCountryByCode } from "@/data/countries";
 
 interface NavigationProps {
   nickname: string;
   countryFlag: string;
   onlineCount?: number;
+  selectedCountryName?: string | null;
+  selectedCountryFlag?: string | null;
   onSearchCountry: (query: string) => void;
+  onSearchConfirm?: (query: string) => void;
   onLogout: () => void;
 }
 
-export function Navigation({ nickname, countryFlag, onlineCount = 0, onSearchCountry, onLogout }: NavigationProps) {
-  const [searchQuery, setSearchQuery] = useState("");
+export function Navigation({ nickname, countryFlag, onlineCount = 0, selectedCountryName, selectedCountryFlag, onSearchCountry, onSearchConfirm, onLogout }: NavigationProps) {
+  const [inputValue, setInputValue] = useState("");
+
+  // Compute the best suggestion from the countries list
+  const suggestion = useMemo(() => {
+    const q = inputValue.trim().toLowerCase();
+    if (!q) return null;
+
+    // Try exact code match first
+    const codeMatch = getCountryByCode(inputValue.toUpperCase());
+    if (codeMatch) return codeMatch.name;
+
+    // Try prefix match on country name
+    const match = COUNTRIES.find((c) =>
+      c.name.toLowerCase().startsWith(q)
+    );
+    if (match && match.name.toLowerCase() !== q) return match.name;
+
+    return null;
+  }, [inputValue]);
+
+  // The gray suggestion text that appears after what the user typed
+  const suggestionSuffix = useMemo(() => {
+    if (!suggestion || !inputValue.trim()) return "";
+    return suggestion.slice(inputValue.trim().length);
+  }, [suggestion, inputValue]);
+
+  const handleChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const val = e.target.value;
+      setInputValue(val);
+      onSearchCountry(val);
+    },
+    [onSearchCountry]
+  );
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if ((e.key === "Tab" || e.key === "ArrowRight") && suggestion) {
+        e.preventDefault();
+        setInputValue(suggestion);
+        onSearchCountry(suggestion);
+      } else if (e.key === "Enter" && inputValue.trim()) {
+        e.preventDefault();
+        onSearchConfirm?.(inputValue.trim());
+        setInputValue("");
+      }
+    },
+    [suggestion, inputValue, onSearchCountry, onSearchConfirm]
+  );
+
+  const handleClear = useCallback(() => {
+    setInputValue("");
+    onSearchCountry("");
+  }, [onSearchCountry]);
 
   return (
-    <nav className="glass-header sticky top-0 z-30" style={{ height: "60px" }}>
-      <div className="h-full max-w-[1600px] mx-auto px-5 flex items-center justify-between gap-4">
-        {/* Logo */}
+    <nav
+      className="sticky top-0 z-30 bg-white border-b border-[#E5E7EB] shadow-[0_1px_2px_rgba(0,0,0,0.04),0_4px_12px_rgba(0,0,0,0.03)]"
+      style={{ height: "70px" }}
+    >
+      <div className="h-full max-w-[1600px] mx-auto px-6 flex items-center gap-5">
+        {/* Logo - left */}
         <motion.a
           href="/"
           className="flex items-center gap-2.5 shrink-0 group"
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
         >
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-pink-500 flex items-center justify-center shadow-md">
-            <span className="text-base leading-none">🌍</span>
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-orange-500 to-pink-500 flex items-center justify-center shadow-md">
+            <span className="text-[15px] leading-none">🌍</span>
           </div>
           <div className="flex flex-col leading-tight">
             <span
-              className="text-sm font-bold bg-gradient-to-r from-orange-500 to-pink-500 bg-clip-text text-transparent"
+              className="text-[15px] font-bold bg-gradient-to-r from-orange-500 to-pink-500 bg-clip-text text-transparent"
               style={{ fontFamily: "'Fredoka', cursive" }}
             >
               WorldThrow
             </span>
-            <span className="text-[9px] font-medium text-gray-400 dark:text-gray-500 -mt-0.5">Throw fun at the world</span>
+            <span className="text-[10px] font-medium text-gray-500 -mt-0.5">
+              Throw fun at the world
+            </span>
           </div>
         </motion.a>
 
-        {/* Search - Desktop */}
-        <div className="hidden md:block flex-1 max-w-md">
-          <div className="relative">
-            <svg
-              className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value);
-                onSearchCountry(e.target.value);
-              }}
-              placeholder="Search countries..."
-              className="w-full h-9 pl-9 pr-3 rounded-xl input-glass text-sm"
-            />
-            {searchQuery && (
+        {/* Search - center, desktop only */}
+        <div className="hidden md:flex flex-1 justify-center min-w-0">
+          <div className="relative w-full max-w-2xl">
+            {/* Input wrapper for suggestion overlay */}
+            <div className="relative">
+              <svg
+                className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none z-10"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <input
+                type="text"
+                value={inputValue}
+                onChange={handleChange}
+                onKeyDown={handleKeyDown}
+                placeholder="Search countries..."
+                className="w-full h-10 pl-11 pr-10 rounded-full bg-white border border-[#E5E7EB] text-sm text-gray-900 placeholder-gray-400 shadow-sm transition-all duration-200 focus:outline-none focus:border-[#F97316] focus:ring-2 focus:ring-orange-100"
+              />
+              {/* Gray suggestion overlay - positioned on top of input text */}
+              {suggestionSuffix && (
+                <span
+                  className="absolute top-0 left-0 h-10 pl-11 pr-10 flex items-center text-sm pointer-events-none text-gray-300"
+                  aria-hidden="true"
+                >
+                  <span className="invisible">{inputValue.trim()}</span>
+                  <span>{suggestionSuffix}</span>
+                </span>
+              )}
+            </div>
+
+            {/* Clear button - only when user has typed */}
+            {inputValue && (
               <button
-                onClick={() => {
-                  setSearchQuery("");
-                  onSearchCountry("");
-                }}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 flex items-center justify-center rounded-full bg-gray-200 dark:bg-white/20 hover:bg-gray-300 dark:hover:bg-white/30 transition-colors"
+                onClick={handleClear}
+                className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors z-10"
                 aria-label="Clear search"
               >
-                <svg className="w-2.5 h-2.5 text-gray-500 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                <svg className="w-3 h-3 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             )}
+
           </div>
         </div>
 
         {/* Right section */}
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-2.5 shrink-0">
           {/* Online counter */}
-          <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800/30">
-            <span className="relative flex w-2 h-2">
-              <span className="absolute inline-flex w-full h-full rounded-full bg-green-400 opacity-75 animate-ping" />
-              <span className="relative inline-flex w-2 h-2 rounded-full bg-green-500" />
-            </span>
-            <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">
-              <span className="font-bold text-green-600 dark:text-green-400">{onlineCount}</span> online
+          <div
+            className="group flex items-center rounded-full border border-[#E5E7EB] bg-white shadow-sm overflow-hidden h-9 cursor-default transition-colors duration-200 hover:border-green-200"
+            title={`${onlineCount} players online`}
+            aria-label={`${onlineCount} players online`}
+          >
+            <div className="flex items-center gap-1.5 pl-3 pr-2.5 h-full">
+              <span className="inline-block w-2 h-2 rounded-full bg-green-500 shrink-0" />
+              <span className="text-xs font-bold text-gray-900 tabular-nums">{onlineCount}</span>
+            </div>
+            <span className="text-xs font-semibold text-gray-500 max-w-0 overflow-hidden whitespace-nowrap pr-0 group-hover:max-w-[60px] group-hover:pr-3.5 transition-all duration-300 ease-out">
+              online
             </span>
           </div>
 
-          {/* User badge */}
-          <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-white/50 dark:bg-white/10 border border-gray-200 dark:border-white/10">
-            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-orange-100 to-pink-100 dark:from-orange-900/30 dark:to-pink-900/30 flex items-center justify-center">
-              <span className="text-sm leading-none">{countryFlag}</span>
-            </div>
-            <div className="flex flex-col leading-tight">
-              <span className="text-[11px] font-bold text-gray-800 dark:text-gray-100 truncate max-w-[80px]">
-                {nickname}
-              </span>
-              <span className="text-[9px] text-gray-400 dark:text-gray-500">Player</span>
-            </div>
+          {/* Player card */}
+          <div className="flex items-center gap-2.5 pl-2.5 pr-3 h-9 rounded-xl bg-white border border-[#E5E7EB] shadow-sm">
+            <span className="text-base leading-none shrink-0">{countryFlag}</span>
+            <span className="text-[13px] font-bold text-gray-900 truncate max-w-[140px] leading-none">
+              {nickname}
+            </span>
           </div>
 
           {/* Logout button */}
           <motion.button
             onClick={onLogout}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/50 dark:bg-white/10 border border-gray-200 dark:border-white/10 text-gray-400 dark:text-gray-500 hover:text-red-500 dark:hover:text-red-400 hover:border-red-200 dark:hover:border-red-800/50 transition-colors"
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.97 }}
+            className="group flex items-center rounded-full border border-[#E5E7EB] bg-white shadow-sm overflow-hidden h-9 transition-colors duration-300 hover:bg-red-50 hover:border-red-200"
+            whileTap={{ scale: 0.96 }}
             title="Logout"
+            aria-label="Logout"
           >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-            </svg>
-            <span className="text-xs font-semibold hidden sm:inline">Logout</span>
+            <span className="flex items-center justify-center w-9 h-full text-gray-500 group-hover:text-red-500 transition-colors duration-300 shrink-0">
+              <svg className="w-[15px] h-[15px]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+            </span>
+            <span className="text-xs font-semibold text-gray-500 group-hover:text-red-500 max-w-0 overflow-hidden whitespace-nowrap pr-0 group-hover:max-w-[70px] group-hover:pr-4 transition-all duration-300 ease-out">
+              Logout
+            </span>
           </motion.button>
         </div>
       </div>

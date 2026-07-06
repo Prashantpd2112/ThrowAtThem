@@ -52,17 +52,17 @@ export function LiveFeed() {
   };
 
   return (
-    <div className="glass-card flex flex-col h-full overflow-hidden">
+    <div className="bg-white rounded-2xl border border-[#E5E7EB] shadow-[0_4px_20px_rgba(0,0,0,0.04)] flex flex-col h-full overflow-hidden">
       {/* Header */}
-      <div className="shrink-0 flex items-center justify-between px-4 pt-3 pb-2.5 border-b border-gray-200 dark:border-white/10">
-        <h3 className="text-xs font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
+      <div className="shrink-0 flex items-center justify-between px-4 pt-3 pb-2.5 border-b border-gray-100">
+        <h3 className="text-xs font-bold text-gray-800 flex items-center gap-2">
           <span className="relative flex w-2 h-2">
             <span className="absolute inline-flex w-full h-full rounded-full bg-green-400 opacity-75 animate-ping" />
             <span className="relative inline-flex w-2 h-2 rounded-full bg-green-500" />
           </span>
           Live Feed
         </h3>
-        <span className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-white/10 px-2.5 py-0.5 rounded-full">
+        <span className="text-[10px] font-semibold text-gray-500 bg-gray-100 px-2.5 py-0.5 rounded-full">
           {throws.length} throws
         </span>
       </div>
@@ -81,15 +81,15 @@ export function LiveFeed() {
                 />
               ))}
             </div>
-            <span className="text-xs text-gray-400 dark:text-gray-500">Loading throws...</span>
+            <span className="text-xs text-gray-400">Loading throws...</span>
           </div>
         ) : throws.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-10 text-center px-4">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-orange-100 to-pink-100 dark:from-orange-900/30 dark:to-pink-900/30 flex items-center justify-center mb-3">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-orange-100 to-pink-100 flex items-center justify-center mb-3">
               <span className="text-2xl">🎯</span>
             </div>
-            <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">No throws yet</p>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Click a country and throw something!</p>
+            <p className="text-sm font-semibold text-gray-800">No throws yet</p>
+            <p className="text-xs text-gray-500 mt-1">Click a country and throw something!</p>
           </div>
         ) : (
           <AnimatePresence initial={false}>
@@ -108,15 +108,15 @@ export function LiveFeed() {
 
                 {/* Content */}
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs leading-snug text-gray-800 dark:text-gray-100">
+                  <p className="text-xs leading-snug text-gray-800">
                     <span className="font-bold text-orange-500">{entry.nickname}</span>
-                    <span className="text-gray-300 dark:text-gray-600 mx-1">→</span>
+                    <span className="text-gray-300 mx-1">→</span>
                     <span className="font-semibold">{entry.country_name}</span>
                   </p>
                   <div className="flex items-center gap-1.5 mt-0.5">
                     <span className="text-sm leading-none">{entry.object}</span>
                     {entry.reason && (
-                      <span className="text-[10px] text-gray-500 dark:text-gray-400 italic truncate">
+                      <span className="text-[10px] text-gray-500 italic truncate">
                         &ldquo;{entry.reason}&rdquo;
                       </span>
                     )}
@@ -124,7 +124,7 @@ export function LiveFeed() {
                 </div>
 
                 {/* Time */}
-                <span className="text-[9px] text-gray-400 dark:text-gray-500 font-medium shrink-0 mt-0.5">
+                <span className="text-[9px] text-gray-400 font-medium shrink-0 mt-0.5">
                   {formatRelativeTime(entry.created_at)}
                 </span>
               </motion.div>

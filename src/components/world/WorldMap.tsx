@@ -6,12 +6,13 @@ import { COUNTRIES, getCountryByCode } from "@/data/countries";
 
 interface WorldMapProps {
   onCountryClick: (countryCode: string) => void;
+  onBackgroundClick?: () => void;
   selectedCountry: string | null;
   heatData?: Record<string, number>;
   highlightedCountry?: string | null;
 }
 
-export function WorldMap({ onCountryClick, selectedCountry, heatData, highlightedCountry }: WorldMapProps) {
+export function WorldMap({ onCountryClick, onBackgroundClick, selectedCountry, heatData, highlightedCountry }: WorldMapProps) {
   const [hoveredCountry, setHoveredCountry] = useState<string | null>(null);
 
   const heatMax = useMemo(() => {
@@ -39,9 +40,17 @@ export function WorldMap({ onCountryClick, selectedCountry, heatData, highlighte
 
   const viewBox = "100 10 610 320";
 
+  const handleBackgroundClick = (e: React.MouseEvent) => {
+    // Only deselect if clicking on the SVG background (not a country)
+    if ((e.target as SVGElement).tagName === "svg" || (e.target as SVGElement).tagName === "rect") {
+      onBackgroundClick?.();
+    }
+  };
+
   return (
     <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
       <svg
+        onClick={handleBackgroundClick}
         viewBox={viewBox}
         className="w-full h-auto max-w-full max-h-full"
         preserveAspectRatio="xMidYMid meet"
@@ -155,38 +164,6 @@ export function WorldMap({ onCountryClick, selectedCountry, heatData, highlighte
         ))}
       </svg>
 
-      {/* Tooltip */}
-      <AnimatePresence>
-        {hoveredCountry && !selectedCountry && (
-          <motion.div
-            className="absolute top-2 left-2 bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm px-3 py-1.5 text-xs rounded-xl shadow-lg border border-gray-200 dark:border-white/10 z-10"
-            initial={{ opacity: 0, y: -6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -6 }}
-          >
-            <span className="font-semibold text-gray-800 dark:text-gray-100">
-              {getCountryByCode(hoveredCountry)?.flag}{" "}
-              {getCountryByCode(hoveredCountry)?.name}
-            </span>
-            {heatData && heatData[hoveredCountry] !== undefined && (
-              <span className="ml-2 text-orange-500 font-bold">
-                {heatData[hoveredCountry]}
-              </span>
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Legend */}
-      <div className="absolute bottom-2 right-2 bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm px-2.5 py-1.5 text-[10px] rounded-xl shadow-lg border border-gray-200 dark:border-white/10 flex items-center gap-2">
-        <span className="text-gray-500 dark:text-gray-400 font-medium">Activity</span>
-        <div className="flex items-center gap-1">
-          <span className="w-3 h-3 rounded-sm bg-[#DCFCE7] border border-white/30" />
-          <span className="w-3 h-3 rounded-sm bg-[#FEF08A] border border-white/30" />
-          <span className="w-3 h-3 rounded-sm bg-[#FB923C] border border-white/30" />
-          <span className="w-3 h-3 rounded-sm bg-[#EF4444] border border-white/30" />
-        </div>
-      </div>
     </div>
   );
 }
