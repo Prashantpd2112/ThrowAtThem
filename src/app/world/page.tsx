@@ -626,27 +626,36 @@ export default function WorldPage() {
 
           {/* CENTER — Map + Bottom Throw Bar */}
           <div className="col-span-1 md:col-span-6 min-h-0 flex flex-col gap-3 md:gap-4">
-            <div className="flex-1 min-h-0 relative overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white/70 backdrop-blur-sm shadow-[0_4px_20px_rgba(0,0,0,0.04)]">
-              <div ref={mapRef} className="absolute inset-0">
-                <WorldMap
-                  heatData={heatData}
-                  selectedCountry={selectedCountry}
-                  highlightedCountry={highlightedCountry}
-                  onCountryClick={handleCountryClick}
-                  onBackgroundClick={() => setSelectedCountry(null)}
-                />
+            <div className="flex-1 min-h-0 rounded-2xl border border-[#E5E7EB] bg-white/70 backdrop-blur-sm shadow-[0_4px_20px_rgba(0,0,0,0.04)] flex flex-col overflow-hidden">
+              {/* Map title header strip */}
+              <div className="shrink-0 flex items-center justify-center border-b border-[#E5E7EB]/60 px-4 py-2.5">
+                <span className="text-[22px] font-bold text-[#2D3748] tracking-[0.3px] leading-none">
+                  🌍 World Map
+                </span>
               </div>
-              {showMapAlert && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none"
-                >
-                  <div className="bg-black/65 backdrop-blur-sm text-red-400 rounded-xl px-6 py-3.5 text-sm font-bold shadow-lg select-none">
-                    Select a country to throw
-                  </div>
-                </motion.div>
-              )}
+              {/* Map */}
+              <div ref={mapRef} className="flex-1 relative min-h-0">
+                <div className="absolute inset-0">
+                  <WorldMap
+                    heatData={heatData}
+                    selectedCountry={selectedCountry}
+                    highlightedCountry={highlightedCountry}
+                    onCountryClick={handleCountryClick}
+                    onBackgroundClick={() => setSelectedCountry(null)}
+                  />
+                </div>
+                {showMapAlert && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none"
+                  >
+                    <div className="bg-black/65 backdrop-blur-sm text-red-400 rounded-xl px-6 py-3.5 text-sm font-bold shadow-lg select-none">
+                      Select a country to throw
+                    </div>
+                  </motion.div>
+                )}
+              </div>
             </div>
 
             {/* BOTTOM BAR — Throw panel */}
