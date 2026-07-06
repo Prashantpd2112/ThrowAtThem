@@ -3,6 +3,7 @@
 import { useState, useMemo, useCallback } from "react";
 import { motion } from "framer-motion";
 import { COUNTRIES, getCountryByCode } from "@/data/countries";
+import { Globe3D } from "@/components/landing/Globe3D";
 
 interface NavigationProps {
   nickname: string;
@@ -84,8 +85,8 @@ export function Navigation({ nickname, countryFlag, onlineCount = 0, selectedCou
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
         >
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-orange-500 to-pink-500 flex items-center justify-center shadow-md">
-            <span className="text-[15px] leading-none">🌍</span>
+          <div className="w-9 h-9 shrink-0 overflow-hidden rounded-full">
+            <Globe3D />
           </div>
           <div className="flex flex-col leading-tight">
             <span

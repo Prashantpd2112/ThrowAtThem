@@ -49,10 +49,10 @@ type DockObjectPickerProps = {
 };
 
 const ITEM_SIZE = 44;        // px — fixed hit-target / button frame (keeps layout stable)
-const BASE_EMOJI = 33;       // px — base emoji size (slightly smaller so tall emojis fit)
-const PEAK_EMOJI = 49;       // px — peak emoji size at the cursor (still fits in item frame)
-const DOT_SIZE = 8;          // px — selected indicator dot
-const DOT_GAP = 12;          // px — extra vertical room for the dot (used in container height calc)
+const BASE_EMOJI = 38;       // px — base emoji size (matches the requested ~38px)
+const PEAK_EMOJI = 56;       // px — peak emoji size at the cursor (still fits in item frame)
+const DOT_SIZE = 5;          // px — selected indicator dot
+const DOT_GAP = 5;           // px — gap between emoji bottom and dot
 const RANGE_PX = 110;        // px — how far the magnification wave reaches either side
 
 // Single item, self-contained, no parent re-renders.
@@ -119,14 +119,13 @@ function DockItem({
       {selected && (
         <span
           aria-hidden
-          className="absolute rounded-full pointer-events-none"
+          className="absolute rounded-full bg-gray-400/85 pointer-events-none"
           style={{
             width: DOT_SIZE,
             height: DOT_SIZE,
             left: "50%",
-            bottom: -10,
+            bottom: -DOT_GAP,
             transform: "translateX(-50%)",
-            backgroundColor: "#333333",
           }}
         />
       )}
@@ -134,24 +133,21 @@ function DockItem({
   );
 }
 
-// Edge chevron used on BOTH sides of the picker. Fades in when there
-// is hidden content on that side. Clicking it smoothly scrolls the
-// picker ~3–4 items in the indicated direction. Manual scrolling
-// (trackpad, Shift+wheel, drag) is unaffected.
+// Right-edge chevron that fades in when the picker is scrollable and
+// more content is hidden to the right. Clicking it smoothly scrolls
+// the picker ~3–4 items to the right. Manual scrolling (trackpad,
+// Shift+wheel, drag) is unaffected.
 function ScrollIndicator({
   visible,
-  direction,
   onClick,
 }: {
   visible: boolean;
-  direction: "left" | "right";
-  onClick?: () => void;
+  onClick: () => void;
 }) {
-  const isLeft = direction === "left";
   return (
     <motion.button
       type="button"
-      aria-label={isLeft ? "Scroll objects to the left" : "Scroll objects to the right"}
+      aria-label="Scroll objects to the right"
       initial={false}
       animate={{ opacity: visible ? 1 : 0 }}
       transition={{ duration: 0.18, ease: "easeOut" }}
@@ -159,7 +155,7 @@ function ScrollIndicator({
       // Pointer events are gated by the parent's fade — when invisible,
       // the button cannot be clicked, so it never intercepts wheel/drag.
       style={{ pointerEvents: visible ? "auto" : "none" }}
-      className={`absolute ${isLeft ? "left-1.5" : "right-1.5"} top-1/2 -translate-y-1/2 cursor-pointer p-0 bg-transparent border-0 outline-none focus:outline-none`}
+      className="absolute right-1.5 top-1/2 -translate-y-1/2 cursor-pointer p-0 bg-transparent border-0 outline-none focus:outline-none"
     >
       <div
         className="flex items-center justify-center rounded-full bg-gray-800/75 shadow-[0_2px_6px_rgba(0,0,0,0.18)] backdrop-blur-[2px]"
@@ -176,11 +172,7 @@ function ScrollIndicator({
           strokeLinejoin="round"
           className="text-white/90"
         >
-          {isLeft ? (
-            <polyline points="15 6 9 12 15 18" />
-          ) : (
-            <polyline points="9 6 15 12 9 18" />
-          )}
+          <polyline points="9 6 15 12 9 18" />
         </svg>
       </div>
     </motion.button>
@@ -208,29 +200,9 @@ function DockObjectPicker({ objects, selectedId, onSelect }: DockObjectPickerPro
     mouseX.set(Number.POSITIVE_INFINITY);
   }, [mouseX]);
 
-  // Scroll the picker ~3–4 items in either direction. We use the first
-  // item's actual rendered width (ITEM_SIZE + gap) so the offset stays
-  // correct even if the gap or item size changes in the future.
-  const handleScrollRight = useCallback(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const gapPx = 36; // matches gap-9 (2.25rem)
-    const step = (ITEM_SIZE + gapPx) * 3.5; // ~3–4 items
-    el.scrollBy({ left: step, behavior: "smooth" });
-  }, []);
-
-  const handleScrollLeft = useCallback(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const gapPx = 36; // matches gap-9 (2.25rem)
-    const step = (ITEM_SIZE + gapPx) * 3.5; // ~3–4 items
-    el.scrollBy({ left: -step, behavior: "smooth" });
-  }, []);
-
   // ── Scroll indicator state ──
   // Only re-renders on scroll / resize, never on pointer move.
   const [canScrollRight, setCanScrollRight] = useState(false);
-  const [canScrollLeft, setCanScrollLeft] = useState(false);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -240,7 +212,6 @@ function DockObjectPicker({ objects, selectedId, onSelect }: DockObjectPickerPro
       // 2px of slack so sub-pixel rounding doesn't keep the chevron visible.
       const overflow = el.scrollWidth - el.clientWidth - el.scrollLeft;
       setCanScrollRight(overflow > 2);
-      setCanScrollLeft(el.scrollLeft > 2);
     };
 
     update();
@@ -273,7 +244,7 @@ function DockObjectPicker({ objects, selectedId, onSelect }: DockObjectPickerPro
     >
       <div
         ref={scrollRef}
-        className="flex items-end gap-9 overflow-x-auto overflow-y-hidden scrollbar-none h-full pl-6 pb-4"
+        className="flex items-end gap-6 overflow-x-auto overflow-y-hidden scrollbar-none h-full pl-4"
       >
         {objects.map((obj) => (
           <DockItem
@@ -285,8 +256,7 @@ function DockObjectPicker({ objects, selectedId, onSelect }: DockObjectPickerPro
           />
         ))}
       </div>
-      <ScrollIndicator visible={canScrollLeft} direction="left" onClick={handleScrollLeft} />
-      <ScrollIndicator visible={canScrollRight} direction="right" onClick={handleScrollRight} />
+      <ScrollIndicator visible={canScrollRight} />
     </div>
   );
 }
@@ -306,7 +276,6 @@ export default function WorldPage() {
   const [highlightedCountry, setHighlightedCountry] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [presenceError, setPresenceError] = useState<string | null>(null);
-  const [showMapAlert, setShowMapAlert] = useState(false);
   const mapRef = useRef<HTMLDivElement>(null);
   const throwBtnRef = useRef<HTMLButtonElement>(null);
   const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -428,13 +397,6 @@ export default function WorldPage() {
     };
   }, []);
 
-  // Auto-dismiss the map alert after 2 seconds
-  useEffect(() => {
-    if (!showMapAlert) return;
-    const timer = setTimeout(() => setShowMapAlert(false), 2000);
-    return () => clearTimeout(timer);
-  }, [showMapAlert]);
-
   // Logout handler
   const handleLogout = useCallback(async () => {
     if (guest && isSupabaseConfigured) {
@@ -501,11 +463,7 @@ export default function WorldPage() {
 
   const handleThrow = useCallback(
     async (objectId: string, reason: string) => {
-      if (!guest || isThrowing) return;
-      if (!selectedCountry) {
-        setShowMapAlert(true);
-        return;
-      }
+      if (!guest || !selectedCountry) return;
       setIsThrowing(true);
 
       const mapEl = mapRef.current;
@@ -539,7 +497,7 @@ export default function WorldPage() {
         setReason("");
       }
     },
-    [guest, selectedCountry, submitThrow, isThrowing]
+    [guest, selectedCountry, submitThrow]
   );
 
   if (!isLoaded || !guest) {
@@ -636,17 +594,6 @@ export default function WorldPage() {
                   onBackgroundClick={() => setSelectedCountry(null)}
                 />
               </div>
-              {showMapAlert && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none"
-                >
-                  <div className="bg-black/65 backdrop-blur-sm text-red-400 rounded-xl px-6 py-3.5 text-sm font-bold shadow-lg select-none">
-                    Select a country to throw
-                  </div>
-                </motion.div>
-              )}
             </div>
 
             {/* BOTTOM BAR — Throw panel */}
@@ -689,8 +636,9 @@ export default function WorldPage() {
                     <motion.button
                       ref={throwBtnRef}
                       whileTap={{ scale: 0.95 }}
+                      disabled={!selectedCountry || isThrowing}
                       onClick={() => handleThrow(selectedObject, reason)}
-                      className="h-10 px-4 md:px-5 rounded-full bg-gradient-to-r from-orange-500 to-pink-500 text-white text-sm font-bold shadow-md hover:shadow-lg transition-shadow flex items-center gap-1.5"
+                      className="h-10 px-4 md:px-5 rounded-full bg-gradient-to-r from-orange-500 to-pink-500 text-white text-sm font-bold shadow-md hover:shadow-lg transition-shadow disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
                     >
                       {isThrowing ? (
                         <>
