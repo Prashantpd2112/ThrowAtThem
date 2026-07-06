@@ -79,6 +79,20 @@ export interface ObjectLeaderboardEntry {
   emoji: string;
 }
 
+export interface ObjectDistribution {
+  object_id: string;
+  object_name: string;
+  object_emoji: string;
+  count: number;
+}
+
+export interface CountryObjectStats {
+  country_code: string;
+  objects: ObjectDistribution[];
+  most_used_object: ObjectDistribution | null;
+  total_throws: number;
+}
+
 export type TimePeriod = "daily" | "weekly" | "all_time";
 
 export type ThemeMode = "light" | "dark";
