@@ -318,7 +318,7 @@ export function Leaderboard() {
         ) : (
           objectLeaderboard.map((entry, i) => (
             <motion.div
-              key={entry.object}
+              key={`${entry.object}-${i}`}
               initial={{ opacity: 0, x: -6 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: i * 0.02 }}
