@@ -47,11 +47,21 @@ export interface CountryStats {
   weekly_count: number;
 }
 
+export interface CountryThrow {
+  id: string;
+  username: string;
+  reason: string;
+  object_name: string;
+  object_emoji: string;
+  created_at: string;
+}
+
 export interface LeaderboardEntry {
   country_name: string;
   country_code: string;
   flag: string;
   count: number;
+  throws: CountryThrow[];
 }
 
 export interface ObjectLeaderboardEntry {

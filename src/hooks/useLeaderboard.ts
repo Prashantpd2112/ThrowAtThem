@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { supabase, DbThrow } from "@/lib/supabase";
-import { LeaderboardEntry, ObjectLeaderboardEntry, TimePeriod } from "@/lib/types";
+import { supabase } from "@/lib/supabase";
+import { LeaderboardEntry, ObjectLeaderboardEntry, TimePeriod, CountryThrow } from "@/lib/types";
 import { getCountryByCode } from "@/data/countries";
 import { getObjectById } from "@/data/objects";
 
@@ -19,7 +19,9 @@ export function useLeaderboard() {
     setActivePeriod(period);
 
     try {
-      let query = supabase.from("throws").select("target_country, object");
+      let query = supabase
+        .from("throws")
+        .select("target_country, object, reason, username, created_at");
 
       if (period === "daily") {
         const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
@@ -34,11 +36,26 @@ export function useLeaderboard() {
 
       // Country counts
       const countryCounts: Record<string, number> = {};
+      const countryThrows: Record<string, CountryThrow[]> = {};
       const objectCounts: Record<string, number> = {};
 
-      (data as DbThrow[]).forEach((t) => {
+      (data as Array<{ target_country: string; object: string; reason: string | null; username: string | null; created_at: string }>).forEach((t) => {
         countryCounts[t.target_country] = (countryCounts[t.target_country] || 0) + 1;
         objectCounts[t.object] = (objectCounts[t.object] || 0) + 1;
+
+        // Collect individual throws per country for the dropdown
+        if (!countryThrows[t.target_country]) {
+          countryThrows[t.target_country] = [];
+        }
+        const obj = getObjectById(t.object);
+        countryThrows[t.target_country].push({
+          id: `${t.target_country}-${countryThrows[t.target_country].length}`,
+          username: t.username || "Anonymous",
+          reason: t.reason || "",
+          object_name: obj?.name || t.object,
+          object_emoji: obj?.emoji || "❓",
+          created_at: t.created_at,
+        });
       });
 
       const countries: LeaderboardEntry[] = Object.entries(countryCounts)
@@ -49,6 +66,7 @@ export function useLeaderboard() {
             country_code: code,
             flag: country?.flag || "🏳",
             count,
+            throws: countryThrows[code] || [],
           };
         })
         .sort((a, b) => b.count - a.count)
