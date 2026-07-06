@@ -23,6 +23,8 @@ export interface ThrowEntry {
   thrower_country: string;
   target_country: string;
   country_name?: string;
+  thrower_country_name?: string | null;
+  thrower_flag?: string | null;
   object: string;
   reason: string;
   created_at: string;

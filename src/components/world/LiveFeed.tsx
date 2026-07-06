@@ -24,6 +24,7 @@ export function LiveFeed() {
       .then((data) => {
         const enriched = data.map((t) => {
           const country = getCountryByCode(t.target_country);
+          const throwerCountry = getCountryByCode(t.thrower_country);
           const obj = getObjectById(t.object);
           return {
             id: t.id,
@@ -32,6 +33,8 @@ export function LiveFeed() {
             thrower_country: t.thrower_country,
             target_country: t.target_country,
             country_name: country?.name || t.target_country,
+            thrower_country_name: throwerCountry?.name || null,
+            thrower_flag: throwerCountry?.flag || null,
             object: obj?.emoji || "❓",
             reason: t.reason,
             created_at: t.created_at,
@@ -50,6 +53,7 @@ export function LiveFeed() {
     unsubscribeRef.current = subscribeToThrows(
       (newThrow) => {
         const country = getCountryByCode(newThrow.target_country);
+        const throwerCountry = getCountryByCode(newThrow.thrower_country);
         const obj = getObjectById(newThrow.object);
         const entry: ThrowEntry = {
           id: newThrow.id,
@@ -58,6 +62,8 @@ export function LiveFeed() {
           thrower_country: newThrow.thrower_country,
           target_country: newThrow.target_country,
           country_name: country?.name || newThrow.target_country,
+          thrower_country_name: throwerCountry?.name || null,
+          thrower_flag: throwerCountry?.flag || null,
           object: obj?.emoji || "❓",
           reason: newThrow.reason,
           created_at: newThrow.created_at,
@@ -148,17 +154,20 @@ export function LiveFeed() {
                 <div className="flex-1 min-w-0">
                   <p className="text-xs leading-snug text-gray-800">
                     <span className="font-bold text-orange-500">{entry.nickname}</span>
-                    <span className="text-gray-300 mx-1">→</span>
-                    <span className="font-semibold">{entry.country_name}</span>
+                    <span className="mx-1.5 text-base leading-none">{entry.object}</span>
+                    <span className="text-gray-300">→</span>
+                    <span className="ml-1 font-semibold">{entry.country_name}</span>
                   </p>
-                  <div className="flex items-center gap-1.5 mt-0.5">
-                    <span className="text-sm leading-none">{entry.object}</span>
-                    {entry.reason && (
-                      <span className="text-[10px] text-gray-500 italic truncate">
-                        &ldquo;{entry.reason}&rdquo;
-                      </span>
-                    )}
-                  </div>
+                  {entry.thrower_flag && entry.thrower_country_name && (
+                    <p className="text-[12px] leading-tight text-gray-400 mt-0.5 truncate">
+                      {entry.thrower_flag} {entry.thrower_country_name}
+                    </p>
+                  )}
+                  {entry.reason && (
+                    <p className="text-[10px] text-gray-500 italic mt-0.5 truncate">
+                      &ldquo;{entry.reason}&rdquo;
+                    </p>
+                  )}
                 </div>
 
                 {/* Time */}

@@ -1,20 +1,15 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
-import { supabase, subscribeToThrows, isSupabaseConfigured } from "@/lib/supabase";
+import { useState, useCallback, useEffect } from "react";
+import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { CountryObjectStats, ObjectDistribution, TimePeriod } from "@/lib/types";
 import { getObjectById } from "@/data/objects";
 
 export function useObjectStats() {
   const [objectStatsMap, setObjectStatsMap] = useState<Record<string, CountryObjectStats>>({});
   const [isLoading, setIsLoading] = useState(false);
-  const unsubscribeRef = useRef<(() => void) | null>(null);
-  // Track current period so realtime re-fetches use the latest
-  const activePeriodRef = useRef<TimePeriod>("all_time");
 
   const fetchObjectStats = useCallback(async (period: TimePeriod) => {
-    activePeriodRef.current = period;
-
     if (!isSupabaseConfigured) {
       setObjectStatsMap({});
       setIsLoading(false);
@@ -93,33 +88,9 @@ export function useObjectStats() {
     fetchObjectStats("all_time");
   }, [fetchObjectStats]);
 
-  // Subscribe to realtime throws to auto-update
-  useEffect(() => {
-    if (!isSupabaseConfigured) return;
-
-    if (unsubscribeRef.current) {
-      unsubscribeRef.current();
-      unsubscribeRef.current = null;
-    }
-
-    unsubscribeRef.current = subscribeToThrows(
-      () => {
-        // Re-fetch with the current period
-        fetchObjectStats(activePeriodRef.current);
-      },
-      (err) => {
-        console.warn("ObjectStats realtime error:", err);
-      }
-    );
-
-    return () => {
-      if (unsubscribeRef.current) {
-        unsubscribeRef.current();
-        unsubscribeRef.current = null;
-      }
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // No realtime subscription here. Object breakdowns now refresh only when
+  // the user manually triggers a refresh (refresh button, browser reload,
+  // or remount). Other features keep their own realtime subscriptions.
 
   return {
     objectStatsMap,

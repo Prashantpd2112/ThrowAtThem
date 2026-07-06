@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
-import { supabase, subscribeToThrows, isSupabaseConfigured } from "@/lib/supabase";
+import { useState, useCallback, useEffect } from "react";
+import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { LeaderboardEntry, ObjectLeaderboardEntry, TimePeriod, CountryThrow } from "@/lib/types";
 import { getCountryByCode } from "@/data/countries";
 import { getObjectById } from "@/data/objects";
@@ -12,7 +12,6 @@ export function useLeaderboard() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activePeriod, setActivePeriod] = useState<TimePeriod>("all_time");
-  const unsubscribeRef = useRef<(() => void) | null>(null);
 
   const computeLeaderboard = useCallback((rows: Array<{ target_country: string; object: string; reason: string | null; nickname: string | null; created_at: string }>) => {
     const countryCounts: Record<string, number> = {};
@@ -66,78 +65,56 @@ export function useLeaderboard() {
     setObjectLeaderboard(objects);
   }, []);
 
-  const fetchLeaderboard = useCallback(async (period: TimePeriod) => {
-    if (!isSupabaseConfigured) {
-      setCountryLeaderboard([]);
-      setObjectLeaderboard([]);
-      setIsLoading(false);
-      return;
-    }
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      let query = supabase
-        .from("throws")
-        .select("target_country, object, reason, nickname, created_at");
-
-      if (period === "daily") {
-        const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-        query = query.gte("created_at", dayAgo);
-      } else if (period === "weekly") {
-        const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-        query = query.gte("created_at", weekAgo);
+  // Real fetch function — fetches leaderboard data for a given period.
+  // Returns a promise that resolves on success or rejects on failure so callers
+  // (e.g. the manual refresh button) can react to errors.
+  const fetchLeaderboard = useCallback(
+    async (period: TimePeriod): Promise<void> => {
+      if (!isSupabaseConfigured) {
+        setCountryLeaderboard([]);
+        setObjectLeaderboard([]);
+        setIsLoading(false);
+        return;
       }
 
-      const { data, error } = await query;
-      if (error) throw error;
+      setIsLoading(true);
+      setError(null);
 
-      computeLeaderboard((data || []) as Array<{ target_country: string; object: string; reason: string | null; nickname: string | null; created_at: string }>);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to fetch leaderboard");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [computeLeaderboard]);
+      try {
+        let query = supabase
+          .from("throws")
+          .select("target_country, object, reason, nickname, created_at");
 
-  // Initial fetch + fetch on period change
+        if (period === "daily") {
+          const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+          query = query.gte("created_at", dayAgo);
+        } else if (period === "weekly") {
+          const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+          query = query.gte("created_at", weekAgo);
+        }
+
+        const { data, error } = await query;
+        if (error) throw error;
+
+        computeLeaderboard((data || []) as Array<{ target_country: string; object: string; reason: string | null; nickname: string | null; created_at: string }>);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to fetch leaderboard");
+        throw err;
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [computeLeaderboard]
+  );
+
+  // Initial fetch on mount and whenever the active period changes.
+  // (No realtime subscription — the leaderboard only refreshes manually
+  // via the refresh button, on browser reload, or on remount.)
   useEffect(() => {
-    fetchLeaderboard(activePeriod);
+    fetchLeaderboard(activePeriod).catch(() => {
+      // Error already captured in hook state; swallow to keep effect clean.
+    });
   }, [activePeriod, fetchLeaderboard]);
-
-  // Subscribe to realtime throws to auto-update leaderboard
-  useEffect(() => {
-    if (!isSupabaseConfigured) return;
-
-    // Clean up any previous subscription before creating a new one
-    if (unsubscribeRef.current) {
-      unsubscribeRef.current();
-      unsubscribeRef.current = null;
-    }
-
-    unsubscribeRef.current = subscribeToThrows(
-      () => {
-        // Re-fetch leaderboard when a new throw comes in (use latest period)
-        setActivePeriod((prev) => {
-          fetchLeaderboard(prev);
-          return prev;
-        });
-      },
-      (err) => {
-        console.warn("Leaderboard realtime error:", err);
-      }
-    );
-
-    return () => {
-      if (unsubscribeRef.current) {
-        unsubscribeRef.current();
-        unsubscribeRef.current = null;
-      }
-    };
-    // Only subscribe/unsubscribe on mount/unmount — not on period change
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const changePeriod = useCallback((period: TimePeriod) => {
     setActivePeriod(period);
@@ -150,5 +127,6 @@ export function useLeaderboard() {
     error,
     activePeriod,
     fetchLeaderboard: changePeriod,
+    refreshLeaderboard: fetchLeaderboard,
   };
 }
