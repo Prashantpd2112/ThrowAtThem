@@ -118,23 +118,29 @@ export function ThrowPanel({
 
       {/* Reason Box */}
       <div>
-        <div className="flex items-center justify-between mb-2">
-          <label className="block text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">
-            Reason <span className="font-normal lowercase text-gray-400 dark:text-gray-500">(optional)</span>
-          </label>
-          <span className="text-[9px] font-semibold px-2 py-0.5 rounded-full text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-white/10">
-            {reason.length}/100
-          </span>
-        </div>
-        <input
-          type="text"
-          value={reason}
-          onChange={(e) => onReasonChange(e.target.value.slice(0, 100))}
-          placeholder='e.g. "For the sushi!"'
-          maxLength={100}
-          disabled={!selectedCountry}
-          className="w-full h-11 px-4 rounded-2xl input-glass text-sm disabled:opacity-40 disabled:cursor-not-allowed"
-        />
+        <label className="block text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-2">
+          Reason <span className="font-normal lowercase text-gray-400 dark:text-gray-500">(optional)</span>
+        </label>
+        <div className="relative">
+          <input
+            type="text"
+            value={reason}
+            onChange={(e) => {
+              const value = e.target.value.replace(/[\r\n]+/g, " ");
+              if (value.length <= 50) {
+                onReasonChange(value);
+              }
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+              }
+            }}
+            placeholder='e.g. "For the sushi!"'
+              maxLength={50}
+              className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-red-500/50 resize-none"
+            />
+          </div>
       </div>
     </div>
   );

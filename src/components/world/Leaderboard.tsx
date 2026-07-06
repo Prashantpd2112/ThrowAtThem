@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLeaderboard } from "@/hooks/useLeaderboard";
 import { useObjectStats } from "@/hooks/useObjectStats";
+import { useReasons } from "@/hooks/useReasons";
+import { useReasonCounts } from "@/hooks/useReasonCounts";
 import { TimePeriod } from "@/lib/types";
 
 const PERIODS: { value: TimePeriod; label: string }[] = [
@@ -13,6 +15,41 @@ const PERIODS: { value: TimePeriod; label: string }[] = [
 ];
 
 const MEDALS = ["🥇", "🥈", "🥉"];
+
+function ReasonsPanel({ countryCode }: { countryCode: string }) {
+  const { reasons, isLoading } = useReasons(countryCode);
+
+  return (
+    <div className="pl-10 pr-3 pb-2 pt-1">
+      <div
+        className="bg-gray-50 rounded-lg border border-gray-100 p-1.5 space-y-1 overflow-y-auto"
+        style={{ maxHeight: "96px" }}
+      >
+        {isLoading ? (
+          <div className="text-center py-2">
+            <p className="text-[10px] text-gray-400">Loading...</p>
+          </div>
+        ) : reasons.length === 0 ? (
+          <div className="text-center py-2">
+            <p className="text-[10px] text-gray-400">No reasons yet</p>
+          </div>
+        ) : (
+          reasons.map((r) => (
+            <div
+              key={r.id}
+              className="flex items-center gap-1.5 p-1 bg-white rounded-md border border-gray-50"
+            >
+              <span className="text-sm leading-none shrink-0">{r.object_emoji}</span>
+              <span className="flex-1 text-[10px] text-gray-700 truncate" title={r.reason}>
+                {r.reason}
+              </span>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
 
 export function Leaderboard() {
   const {
@@ -25,19 +62,54 @@ export function Leaderboard() {
 
   const { objectStatsMap, fetchObjectStats } = useObjectStats();
 
+  // Stable list of country codes currently visible in the leaderboard
+  const countryCodes = useMemo(
+    () => countryLeaderboard.map((c) => c.country_code),
+    [countryLeaderboard]
+  );
+
+  const { counts: reasonCounts } = useReasonCounts(activePeriod, countryCodes);
+
   const [activeTab, setActiveTab] = useState<"countries" | "objects">("countries");
-  const [expandedCountry, setExpandedCountry] = useState<string | null>(null);
+
+  // Single source of truth for the expanded dropdown across the entire leaderboard.
+  // Only ONE dropdown can be open at a time. Storing both the country and the type
+  // guarantees mutual exclusivity: opening a new one automatically closes the old one.
+  const [expanded, setExpanded] = useState<{
+    countryCode: string;
+    type: "objects" | "reasons";
+  } | null>(null);
 
   const handlePeriodChange = useCallback(
     (period: TimePeriod) => {
+      // Collapse any open dropdown so it doesn't linger on stale data.
+      setExpanded(null);
       fetchLeaderboard(period);
       fetchObjectStats(period);
     },
     [fetchLeaderboard, fetchObjectStats]
   );
 
-  const toggleExpand = useCallback((countryCode: string) => {
-    setExpandedCountry((prev) => (prev === countryCode ? null : countryCode));
+  const handleTabChange = useCallback((tab: "countries" | "objects") => {
+    setActiveTab(tab);
+    // Switching tabs closes any open dropdown.
+    setExpanded(null);
+  }, []);
+
+  const toggleObject = useCallback((countryCode: string) => {
+    setExpanded((prev) =>
+      prev && prev.countryCode === countryCode && prev.type === "objects"
+        ? null
+        : { countryCode, type: "objects" }
+    );
+  }, []);
+
+  const toggleReason = useCallback((countryCode: string) => {
+    setExpanded((prev) =>
+      prev && prev.countryCode === countryCode && prev.type === "reasons"
+        ? null
+        : { countryCode, type: "reasons" }
+    );
   }, []);
 
   return (
@@ -67,7 +139,7 @@ export function Leaderboard() {
       {/* Type Tabs */}
       <div className="shrink-0 flex gap-1.5 px-4 pt-3 pb-2">
         <button
-          onClick={() => setActiveTab("countries")}
+          onClick={() => handleTabChange("countries")}
           className={`text-[10px] font-semibold px-3 py-1.5 rounded-lg transition-all duration-200 ${
             activeTab === "countries"
               ? "bg-orange-500 text-white shadow-sm"
@@ -77,7 +149,7 @@ export function Leaderboard() {
           🇺🇳 Countries
         </button>
         <button
-          onClick={() => setActiveTab("objects")}
+          onClick={() => handleTabChange("objects")}
           className={`text-[10px] font-semibold px-3 py-1.5 rounded-lg transition-all duration-200 ${
             activeTab === "objects"
               ? "bg-orange-500 text-white shadow-sm"
@@ -115,7 +187,11 @@ export function Leaderboard() {
           countryLeaderboard.map((entry, i) => {
             const stats = objectStatsMap[entry.country_code];
             const mostUsed = stats?.most_used_object;
-            const isExpanded = expandedCountry === entry.country_code;
+            const isObjectOpen =
+              expanded?.countryCode === entry.country_code && expanded.type === "objects";
+            const isReasonOpen =
+              expanded?.countryCode === entry.country_code && expanded.type === "reasons";
+            const reasonCount = reasonCounts[entry.country_code] || 0;
 
             return (
               <div key={entry.country_code}>
@@ -136,35 +212,57 @@ export function Leaderboard() {
                   <span className="flex-1 text-[11px] font-semibold text-gray-800 truncate">
                     {entry.country_name}
                   </span>
-                  <div className="flex items-center gap-1">
+
+                  {/* Object dropdown trigger: 🍅 55 throws ▼ */}
+                  <button
+                    onClick={() => toggleObject(entry.country_code)}
+                    className="flex items-center gap-1 pl-1.5 pr-1 py-0.5 rounded-md hover:bg-gray-100 transition-colors"
+                    aria-label={isObjectOpen ? "Hide object breakdown" : "Show object breakdown"}
+                  >
                     {mostUsed && (
                       <span className="text-sm leading-none" title={mostUsed.object_name}>
                         {mostUsed.object_emoji}
                       </span>
                     )}
-                    <span className="text-[11px] font-bold text-orange-500">{entry.count}</span>
-                    <span className="text-[9px] text-gray-400">throws</span>
-                    <button
-                      onClick={() => toggleExpand(entry.country_code)}
-                      className="ml-0.5 w-4 h-4 flex items-center justify-center rounded hover:bg-gray-100 transition-colors"
-                      aria-label={isExpanded ? "Collapse" : "Expand"}
+                    <span className="text-[11px] font-bold text-orange-500 tabular-nums">
+                      {entry.count}
+                    </span>
+                    <motion.span
+                      animate={{ rotate: isObjectOpen ? 180 : 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="text-[9px] text-gray-400 leading-none"
                     >
-                      <motion.span
-                        animate={{ rotate: isExpanded ? 180 : 0 }}
-                        transition={{ duration: 0.2 }}
-                        className="text-[10px] text-gray-400 leading-none"
-                      >
-                        ▼
-                      </motion.span>
-                    </button>
-                  </div>
+                      ▼
+                    </motion.span>
+                  </button>
+
+                  {/* Reason dropdown trigger: Reasons 3 ▼ */}
+                  <button
+                    onClick={() => toggleReason(entry.country_code)}
+                    className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-gray-50 border border-gray-100 hover:bg-gray-100 transition-colors"
+                    aria-label={isReasonOpen ? "Hide reasons" : "Show reasons"}
+                  >
+                    <span className="text-[9px] font-semibold text-gray-500">
+                      {reasonCount === 1 ? "Reason" : "Reasons"}
+                    </span>
+                    <span className="text-[10px] font-bold text-gray-700 tabular-nums">
+                      {reasonCount}
+                    </span>
+                    <motion.span
+                      animate={{ rotate: isReasonOpen ? 180 : 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="text-[9px] text-gray-400 leading-none"
+                    >
+                      ▼
+                    </motion.span>
+                  </button>
                 </motion.div>
 
-                {/* Expandable object breakdown */}
+                {/* Object breakdown dropdown */}
                 <AnimatePresence initial={false}>
-                  {isExpanded && stats && (
+                  {isObjectOpen && stats && (
                     <motion.div
-                      key={`expand-${entry.country_code}`}
+                      key={`objects-${entry.country_code}`}
                       initial={{ height: 0, opacity: 0 }}
                       animate={{ height: "auto", opacity: 1 }}
                       exit={{ height: 0, opacity: 0 }}
@@ -187,6 +285,22 @@ export function Leaderboard() {
                           </div>
                         ))}
                       </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Reasons dropdown */}
+                <AnimatePresence initial={false}>
+                  {isReasonOpen && (
+                    <motion.div
+                      key={`reasons-${entry.country_code}`}
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.25, ease: "easeInOut" }}
+                      className="overflow-hidden"
+                    >
+                      <ReasonsPanel countryCode={entry.country_code} />
                     </motion.div>
                   )}
                 </AnimatePresence>

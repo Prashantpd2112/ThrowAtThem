@@ -396,15 +396,28 @@ export default function WorldPage() {
                   <div className="hidden md:block w-px h-10 bg-gray-200" />
 
                   <div className="flex items-center gap-2 shrink-0">
-                    <input
-                      type="text"
-                      value={reason}
-                      onChange={(e) => setReason(e.target.value.slice(0, 60))}
-                      placeholder="Reason (optional)"
-                      maxLength={60}
-                      disabled={!selectedCountry}
-                      className="h-10 w-32 md:w-44 px-3 rounded-full bg-white border border-[#E5E7EB] text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#F97316] focus:ring-2 focus:ring-orange-100 disabled:opacity-50"
-                    />
+                    <div className="flex flex-col gap-0.5 shrink-0">
+                      <input
+                        type="text"
+                        value={reason}
+                        onChange={(e) => {
+                          const value = e.target.value.replace(/[\r\n]+/g, " ");
+                          if (value.length <= 50) {
+                            setReason(value);
+                          }
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && selectedCountry && !isThrowing) {
+                            e.preventDefault();
+                            handleThrow(selectedObject, reason);
+                          }
+                        }}
+                        placeholder="Reason (optional)"
+                        maxLength={50}
+                        disabled={!selectedCountry}
+                        className="h-10 w-32 md:w-44 px-3 rounded-full bg-white border border-[#E5E7EB] text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#F97316] focus:ring-2 focus:ring-orange-100 disabled:opacity-50"
+                      />
+                    </div>
                     <motion.button
                       ref={throwBtnRef}
                       whileTap={{ scale: 0.95 }}
