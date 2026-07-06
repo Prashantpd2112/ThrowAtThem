@@ -4,14 +4,37 @@ import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ThrowEntry } from "@/lib/types";
 import { formatRelativeTime } from "@/lib/utils";
-import { fetchRecentThrows, subscribeToThrows, isSupabaseConfigured } from "@/lib/supabase";
+import { fetchRecentThrows, subscribeToThrows, isSupabaseConfigured, fetchTotalThrowCount } from "@/lib/supabase";
 import { getCountryByCode } from "@/data/countries";
 import { getObjectById } from "@/data/objects";
+
+// Compact number formatter: 845 -> "845", 1250 -> "1.2K", 12500 -> "12.5K",
+// 1250000 -> "1.2M", etc. Keeps one decimal when below 10× the next unit.
+function formatCompactNumber(n: number): string {
+  if (!Number.isFinite(n) || n < 0) return "0";
+  if (n < 1000) return String(Math.floor(n));
+  const units: { v: number; s: string }[] = [
+    { v: 1_000_000_000, s: "B" },
+    { v: 1_000_000, s: "M" },
+    { v: 1_000, s: "K" },
+  ];
+  for (const { v, s } of units) {
+    if (n >= v) {
+      const scaled = n / v;
+      const display = scaled >= 100 ? Math.round(scaled) : Math.round(scaled * 10) / 10;
+      // Trim a trailing ".0" (e.g. "2.0K" -> "2K")
+      return (Number.isInteger(display) ? String(display) : display.toFixed(1)) + s;
+    }
+  }
+  return String(Math.floor(n));
+}
 
 export function LiveFeed() {
   const [throws, setThrows] = useState<ThrowEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [realtimeError, setRealtimeError] = useState<string | null>(null);
+  // Real total of every throw in the database. null = not yet fetched.
+  const [totalThrows, setTotalThrows] = useState<number | null>(null);
   const unsubscribeRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
@@ -19,6 +42,16 @@ export function LiveFeed() {
       setIsLoading(false);
       return;
     }
+
+    // Fetch the real total count in parallel with the recent throws list.
+    // This is a one-time load — the badge will NOT update in realtime.
+    fetchTotalThrowCount()
+      .then((count) => {
+        setTotalThrows(count);
+      })
+      .catch(() => {
+        // Keep the previous value on failure; initial null will render as "0 throws".
+      });
 
     fetchRecentThrows(50)
       .then((data) => {
@@ -69,6 +102,10 @@ export function LiveFeed() {
           created_at: newThrow.created_at,
         };
         setThrows((prev) => [entry, ...prev].slice(0, 50));
+        // Increment the total badge by 1 for every realtime insert.
+        // We use the functional updater so two events fired in the same
+        // tick still both get counted, regardless of stale closure values.
+        setTotalThrows((prevTotal) => (prevTotal == null ? 1 : prevTotal + 1));
       },
       (err) => {
         setRealtimeError("Live connection lost. Reconnecting...");
@@ -97,7 +134,7 @@ export function LiveFeed() {
           Live Feed
         </h3>
         <span className="text-[10px] font-semibold text-gray-500 bg-gray-100 px-2.5 py-0.5 rounded-full">
-          {throws.length} throws
+          {formatCompactNumber(totalThrows ?? 0)} throws
         </span>
       </div>
 
@@ -143,12 +180,21 @@ export function LiveFeed() {
                 initial={{ opacity: 0, x: -8 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: Math.min(i * 0.015, 0.25) }}
-                className="feed-entry flex items-start gap-2.5 p-2"
+                className={`feed-entry flex gap-2.5 p-2 ${entry.reason ? "items-start" : "items-center"}`}
               >
-                {/* Avatar */}
-                <div className="w-7 h-7 rounded-xl bg-gradient-to-br from-orange-500 to-pink-500 flex items-center justify-center text-white text-[11px] font-bold shrink-0">
-                  {entry.nickname.charAt(0).toUpperCase()}
-                </div>
+                {/* Flag (or fallback initial avatar) */}
+                {entry.thrower_flag ? (
+                  <span
+                    className="shrink-0 text-[28px] leading-none mr-0.5 select-none"
+                    aria-hidden="true"
+                  >
+                    {entry.thrower_flag}
+                  </span>
+                ) : (
+                  <span className="shrink-0 w-7 h-7 rounded-xl bg-gradient-to-br from-orange-500 to-pink-500 text-white text-[11px] font-bold flex items-center justify-center mr-0.5">
+                    {entry.nickname.charAt(0).toUpperCase()}
+                  </span>
+                )}
 
                 {/* Content */}
                 <div className="flex-1 min-w-0">
@@ -158,20 +204,15 @@ export function LiveFeed() {
                     <span className="text-gray-300">→</span>
                     <span className="ml-1 font-semibold">{entry.country_name}</span>
                   </p>
-                  {entry.thrower_flag && entry.thrower_country_name && (
-                    <p className="text-[12px] leading-tight text-gray-400 mt-0.5 truncate">
-                      {entry.thrower_flag} {entry.thrower_country_name}
-                    </p>
-                  )}
                   {entry.reason && (
-                    <p className="text-[10px] text-gray-500 italic mt-0.5 truncate">
+                    <p className="text-[10px] text-gray-500 italic mt-1 truncate">
                       &ldquo;{entry.reason}&rdquo;
                     </p>
                   )}
                 </div>
 
                 {/* Time */}
-                <span className="text-[9px] text-gray-400 font-medium shrink-0 mt-0.5">
+                <span className={`text-[9px] text-gray-400 font-medium shrink-0 ${entry.reason ? "mt-0.5" : ""}`}>
                   {formatRelativeTime(entry.created_at)}
                 </span>
               </motion.div>

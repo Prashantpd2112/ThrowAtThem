@@ -132,6 +132,17 @@ export const fetchRecentThrows = async (limit = 50): Promise<DbThrow[]> => {
   return (data || []) as DbThrow[];
 };
 
+// Returns the total number of throws stored in the database (all-time).
+// Uses a HEAD-only count query so no row data is transferred.
+export const fetchTotalThrowCount = async (): Promise<number> => {
+  const client = getClient();
+  const { count, error } = await client
+    .from("throws")
+    .select("*", { count: "exact", head: true });
+  if (error) throw error;
+  return typeof count === "number" ? count : 0;
+};
+
 export const fetchHeatData = async (): Promise<Record<string, number>> => {
   const client = getClient();
   const { data, error } = await client
