@@ -66,6 +66,66 @@ function getClient(): SupabaseClient {
 }
 
 // ── Guest Operations ──
+
+/**
+ * Ensures a guest row exists in the database for the given local guest data.
+ * If the guest already exists (by id), it updates nickname/country.
+ * If not, it inserts a new row.
+ * This is a synchronous await — the caller MUST await this before doing any
+ * operation that references guest_id as a foreign key.
+ * Returns true on success, throws on failure.
+ */
+export const ensureGuestExists = async (guest: { id: string; nickname: string; country: string }): Promise<boolean> => {
+  const client = getClient();
+  console.log("[ensureGuestExists START] guest_id:", guest.id, "nickname:", guest.nickname);
+
+  // First check if the guest row already exists
+  const { data: existing, error: lookupError } = await client
+    .from("guests")
+    .select("id")
+    .eq("id", guest.id)
+    .maybeSingle();
+
+  if (lookupError) {
+    console.error("[ensureGuestExists FAILED] Lookup error:", lookupError);
+    throw lookupError;
+  }
+
+  if (existing) {
+    // Guest exists — just update nickname/country in case they changed
+    console.log("[ensureGuestExists] Guest found, updating:", guest.id);
+    const { error: updateError } = await client
+      .from("guests")
+      .update({ nickname: guest.nickname, country: guest.country })
+      .eq("id", guest.id);
+    if (updateError) {
+      console.error("[ensureGuestExists FAILED] Update error:", updateError);
+      throw updateError;
+    }
+    console.log("[ensureGuestExists SUCCESS] Guest updated:", guest.id);
+    return true;
+  }
+
+  // Guest doesn't exist — insert it
+  console.log("[ensureGuestExists] Guest not found, inserting:", guest.id);
+  const { error: insertError } = await client
+    .from("guests")
+    .insert(guest);
+  if (insertError) {
+    // Code 23505 = unique violation (duplicate key). This happens when a
+    // concurrent ensureGuestExists call inserted the same guest_id first.
+    // Treat this as success — the guest row now exists.
+    if (insertError.code === '23505') {
+      console.log("[ensureGuestExists SUCCESS] Guest already inserted by concurrent call:", guest.id);
+      return true;
+    }
+    console.error("[ensureGuestExists FAILED] Insert error:", insertError);
+    throw insertError;
+  }
+  console.log("[ensureGuestExists SUCCESS] Guest inserted:", guest.id);
+  return true;
+};
+
 export const upsertGuest = async (guest: { id: string; nickname: string; country: string }) => {
   const client = getClient();
   const { data: existing } = await client
@@ -79,12 +139,18 @@ export const upsertGuest = async (guest: { id: string; nickname: string; country
       .from("guests")
       .update({ nickname: guest.nickname, country: guest.country })
       .eq("id", guest.id);
-    if (error) throw error;
+    if (error) {
+      console.error("[upsertGuest UPDATE]", { message: error.message, details: error.details, hint: error.hint, code: error.code });
+      throw error;
+    }
   } else {
     const { error } = await client
       .from("guests")
       .insert(guest);
-    if (error) throw error;
+    if (error) {
+      console.error("[upsertGuest INSERT]", { message: error.message, details: error.details, hint: error.hint, code: error.code });
+      throw error;
+    }
   }
 };
 
@@ -109,7 +175,8 @@ export const insertThrow = async (throwData: {
   reason: string;
 }): Promise<boolean> => {
   const client = getClient();
-  const { error } = await client.from("throws").insert({
+  console.log("[insertThrow] Starting insert:", { object: throwData.object, target: throwData.target_country });
+  const { error, status, statusText } = await client.from("throws").insert({
     guest_id: throwData.guest_id,
     nickname: throwData.nickname,
     thrower_country: throwData.thrower_country,
@@ -117,7 +184,18 @@ export const insertThrow = async (throwData: {
     object: throwData.object,
     reason: throwData.reason || "",
   });
-  if (error) throw error;
+  if (error) {
+    console.error("[insertThrow ERROR]", {
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+      code: error.code,
+      responseStatus: status,
+      responseStatusText: statusText,
+    });
+    throw error;
+  }
+  console.log("[insertThrow] Success, status:", status);
   return true;
 };
 
@@ -163,7 +241,8 @@ export const upsertPresence = async (presence: {
   country: string;
 }) => {
   const client = getClient();
-  const { error } = await client.from("user_presence").upsert(
+  console.log("[upsertPresence] Starting upsert for:", presence.guest_id);
+  const { error, status, statusText } = await client.from("user_presence").upsert(
     {
       guest_id: presence.guest_id,
       nickname: presence.nickname,
@@ -172,7 +251,18 @@ export const upsertPresence = async (presence: {
     },
     { onConflict: "guest_id" }
   );
-  if (error) throw error;
+  if (error) {
+    console.error("[upsertPresence ERROR]", {
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+      code: error.code,
+      responseStatus: status,
+      responseStatusText: statusText,
+    });
+    throw error;
+  }
+  console.log("[upsertPresence] Success, status:", status);
 };
 
 export const removePresence = async (guestId: string) => {
@@ -181,7 +271,10 @@ export const removePresence = async (guestId: string) => {
     .from("user_presence")
     .delete()
     .eq("guest_id", guestId);
-  if (error) throw error;
+  if (error) {
+    console.error("[removePresence ERROR]", { message: error.message, details: error.details, hint: error.hint, code: error.code });
+    throw error;
+  }
 };
 
 export const fetchOnlineUsers = async (): Promise<DbUserPresence[]> => {
@@ -288,6 +381,7 @@ export function createThrowsSubscription(
 ): () => void {
   const client = getClient();
   const channelName = nextChannelName("throws");
+  console.log("[createThrowsSubscription] Creating channel:", channelName);
   const channel = client
     .channel(channelName)
     .on(
@@ -299,18 +393,24 @@ export function createThrowsSubscription(
       },
       (payload: RealtimePostgresChangesPayload<DbThrow>) => {
         const newThrow = payload.new as DbThrow;
+        console.log("[createThrowsSubscription] Received realtime event:", newThrow?.id);
         if (newThrow && newThrow.id) {
           callback(newThrow);
         }
       }
     )
     .subscribe((status) => {
+      console.log("[createThrowsSubscription] Channel status:", status, "for", channelName);
       if (status === "CHANNEL_ERROR" && onError) {
         onError(new Error("Realtime subscription failed"));
+      }
+      if (status === "SUBSCRIBED") {
+        console.log("[createThrowsSubscription] Successfully subscribed:", channelName);
       }
     });
 
   return () => {
+    console.log("[createThrowsSubscription] Removing channel:", channelName);
     client.removeChannel(channel);
   };
 }
@@ -321,6 +421,7 @@ export function createPresenceSubscription(
 ): () => void {
   const client = getClient();
   const channelName = nextChannelName("presence");
+  console.log("[createPresenceSubscription] Creating channel:", channelName);
   const channel = client
     .channel(channelName)
     .on(
@@ -331,16 +432,22 @@ export function createPresenceSubscription(
         table: "user_presence",
       },
       () => {
+        console.log("[createPresenceSubscription] Presence change detected");
         callback();
       }
     )
     .subscribe((status) => {
+      console.log("[createPresenceSubscription] Channel status:", status, "for", channelName);
       if (status === "CHANNEL_ERROR" && onError) {
         onError(new Error("Presence subscription failed"));
+      }
+      if (status === "SUBSCRIBED") {
+        console.log("[createPresenceSubscription] Successfully subscribed:", channelName);
       }
     });
 
   return () => {
+    console.log("[createPresenceSubscription] Removing channel:", channelName);
     client.removeChannel(channel);
   };
 }

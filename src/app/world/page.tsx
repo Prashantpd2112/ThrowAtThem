@@ -21,6 +21,7 @@ import {
   subscribeToThrows,
   subscribeToPresence,
   isSupabaseConfigured,
+  ensureGuestExists,
 } from "@/lib/supabase";
 import type { ThrowableObject } from "@/lib/types";
 
@@ -324,33 +325,57 @@ export default function WorldPage() {
   useEffect(() => {
     if (!isLoaded || !guest || !isSupabaseConfigured) return;
 
-    // Mark user online
+    if (typeof window !== 'undefined') {
+      console.log("[Presence START] guest_id:", guest.id, "nickname:", guest.nickname);
+    }
+
+    // Mark user online — first ensure the guest row exists in Supabase
     const markOnline = async () => {
       try {
+        // CRITICAL: Ensure the guest row exists in the DB BEFORE referencing it
+        // as a foreign key in user_presence. Without this, the upsert fails
+        // with FK violation 23503 when the async upsertGuest hasn't completed yet.
+        const guestOk = await ensureGuestExists(guest);
+        console.log("[Presence] ensureGuestExists returned:", guestOk);
+
+        console.log("[Presence] Calling upsertPresence for:", guest.id);
         await upsertPresence({
           guest_id: guest.id,
           nickname: guest.nickname,
           country: guest.country,
         });
+        console.log("[Presence SUCCESS] Presence upserted for:", guest.id);
         setPresenceError(null);
       } catch (err) {
-        console.warn("Failed to mark presence:", err);
-        setPresenceError("Connection issue");
+        const errInfo = err instanceof Error ? err.message : String(err);
+        console.error("[Presence FAILED] Error:", err);
+        // If it's a known Supabase error, log the details
+        if (typeof err === "object" && err !== null) {
+          const e = err as any;
+          if (e.details || e.hint || e.code) {
+            console.error("[Presence FAILED] Supabase error details:", { details: e.details, hint: e.hint, code: e.code });
+          }
+        }
+        setPresenceError(`Sync issue: ${errInfo}`);
       }
     };
 
     markOnline();
 
-    // Heartbeat every 30 seconds
+    // Heartbeat every 30 seconds — ensures presence stays fresh
     heartbeatRef.current = setInterval(async () => {
       try {
+        // Re-ensure guest exists before heartbeat upsert (safety net)
+        await ensureGuestExists(guest);
+        console.log("[Heartbeat] Refreshing presence for:", guest.id);
         await upsertPresence({
           guest_id: guest.id,
           nickname: guest.nickname,
           country: guest.country,
         });
-      } catch {
-        // Silently handle heartbeat failure
+        console.log("[Heartbeat] Presence refreshed:", guest.id);
+      } catch (err) {
+        console.warn("[Heartbeat] Failed to refresh presence:", err);
       }
     }, 30000);
 
@@ -371,12 +396,12 @@ export default function WorldPage() {
         try {
           const users = await fetchOnlineUsers();
           setOnlineCount(users.length);
-        } catch {
-          // Silently handle
+        } catch (err) {
+          console.error("[Presence] Failed to fetch online users after presence change:", err);
         }
       },
       (err: Error) => {
-        console.warn("Presence subscription error:", err);
+        console.error("[Presence] Subscription error:", err.message);
       }
     );
 
@@ -411,13 +436,14 @@ export default function WorldPage() {
     // Subscribe to new throws to update heat data in realtime
     throwsUnsubscribeRef.current = subscribeToThrows(
       (newThrow) => {
+        console.log("[HeatData] Received realtime throw:", newThrow.id, "→", newThrow.target_country);
         setHeatData((prev) => ({
           ...prev,
           [newThrow.target_country]: (prev[newThrow.target_country] || 0) + 1,
         }));
       },
       (err: Error) => {
-        console.warn("Throws subscription error:", err);
+        console.error("[HeatData] Throws subscription error:", err.message);
       }
     );
 
@@ -531,12 +557,27 @@ export default function WorldPage() {
         triggerThrowAnimation(obj.emoji, startX, startY, targetX, targetY, obj.particleColor);
       }
 
+      // CRITICAL: Ensure the guest row exists in Supabase before inserting
+      // a throw that references guest_id as a foreign key.
+      try {
+        await ensureGuestExists(guest);
+      } catch (err) {
+        console.error("[Throw] Failed to ensure guest exists:", err);
+        setIsThrowing(false);
+        return;
+      }
+
+      console.log("[Throw START] guest_id:", guest.id, "object:", objectId, "target:", selectedCountry);
+      console.log("[Throw] Calling submitThrow...");
       const success = await submitThrow(guest.id, guest.nickname, guest.country, selectedCountry, objectId, reason);
       setIsThrowing(false);
 
       if (success && selectedCountry) {
+        console.log("[Throw SUCCESS] Throw saved for:", guest.id, "→", selectedCountry);
         setHeatData((prev) => ({ ...prev, [selectedCountry]: (prev[selectedCountry] || 0) + 1 }));
         setReason("");
+      } else if (!success) {
+        console.error("[Throw FAILED] submitThrow returned false for guest:", guest.id);
       }
     },
     [guest, selectedCountry, submitThrow, isThrowing]
