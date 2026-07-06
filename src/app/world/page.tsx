@@ -12,7 +12,7 @@ import { ThrowAnimation, triggerThrowAnimation } from "@/components/world/ThrowA
 import { useGuest } from "@/hooks/useGuest";
 import { useThrows } from "@/hooks/useThrows";
 import { COUNTRIES, getCountryByCode } from "@/data/countries";
-import { getObjectById } from "@/data/objects";
+import { THROWABLE_OBJECTS, getObjectById } from "@/data/objects";
 import {
   fetchHeatData,
   upsertPresence,
@@ -364,16 +364,7 @@ export default function WorldPage() {
                   <div className="flex-1 min-w-0 flex items-center gap-2 overflow-x-auto scrollbar-none">
                     <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest shrink-0 mr-1">Throw</span>
                     <div className="flex items-center gap-1.5">
-                      {[
-                        { id: "tomato", emoji: "🍅", name: "Tomato" },
-                        { id: "snowball", emoji: "⛄", name: "Snowball" },
-                        { id: "flower", emoji: "🌸", name: "Flower" },
-                        { id: "pizza", emoji: "🍕", name: "Pizza" },
-                        { id: "rock", emoji: "🪨", name: "Rock" },
-                        { id: "love", emoji: "💖", name: "Love" },
-                        { id: "fireball", emoji: "🔥", name: "Fireball" },
-                        { id: "money", emoji: "💸", name: "Money" },
-                      ].map((obj) => {
+                      {THROWABLE_OBJECTS.map((obj) => {
                         const active = selectedObject === obj.id;
                         return (
                           <button
