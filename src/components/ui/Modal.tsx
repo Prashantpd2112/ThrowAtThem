@@ -53,7 +53,7 @@ export function Modal({ isOpen, onClose, children, className = "", showCloseButt
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
             className={`relative w-full max-w-lg ${className}`}
           >
-            <div className="glass-strong rounded-3xl p-6 md:p-8 shadow-2xl">
+            <div className="rounded-3xl p-6 md:p-8 shadow-2xl bg-white/95 backdrop-blur-md border border-gray-200">
               {showCloseButton && (
                 <button
                   onClick={onClose}
