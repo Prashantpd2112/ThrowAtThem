@@ -18,7 +18,7 @@ export interface ThrowableObject {
 
 export interface ThrowEntry {
   id: string;
-  guest_id: string;
+  player_id: string;
   nickname: string;
   thrower_country: string;
   target_country: string;
@@ -32,6 +32,15 @@ export interface Guest {
   id: string;
   nickname: string;
   country: string;
+  created_at: string;
+}
+
+export interface UserPresence {
+  id: string;
+  guest_id: string;
+  nickname: string;
+  country: string;
+  last_seen: string;
   created_at: string;
 }
 

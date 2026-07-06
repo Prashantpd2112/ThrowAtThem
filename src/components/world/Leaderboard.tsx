@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { useLeaderboard } from "@/hooks/useLeaderboard";
 import { TimePeriod } from "@/lib/types";
@@ -23,10 +23,6 @@ export function Leaderboard() {
   } = useLeaderboard();
 
   const [activeTab, setActiveTab] = useState<"countries" | "objects">("countries");
-
-  useEffect(() => {
-    fetchLeaderboard(activePeriod);
-  }, [activePeriod, fetchLeaderboard]);
 
   return (
     <div className="bg-white rounded-2xl border border-[#E5E7EB] shadow-[0_4px_20px_rgba(0,0,0,0.04)] flex flex-col h-full overflow-hidden">

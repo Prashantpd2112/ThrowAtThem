@@ -1,4 +1,4 @@
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { createClient, SupabaseClient, RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
@@ -12,17 +12,19 @@ if (isConfigured) {
       persistSession: false,
       autoRefreshToken: false,
     },
+    realtime: {
+      params: {
+        eventsPerSecond: 10,
+      },
+    },
   });
 }
 
-// Export a function-based API that handles missing config gracefully
-function getClient(): SupabaseClient {
-  if (!supabaseInstance) {
-    throw new Error(
-      "Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in your .env.local file."
-    );
-  }
-  return supabaseInstance;
+// Auto-incrementing counter to generate unique channel names
+let channelCounter = 0;
+function nextChannelName(prefix: string): string {
+  channelCounter += 1;
+  return `${prefix}-${channelCounter}-${Date.now()}`;
 }
 
 // ── Database Types ──
@@ -37,23 +39,153 @@ export type DbThrow = {
   created_at: string;
 };
 
+export type DbGuest = {
+  id: string;
+  nickname: string;
+  country: string;
+  created_at: string;
+};
+
+export type DbUserPresence = {
+  id: string;
+  guest_id: string;
+  nickname: string;
+  country: string;
+  last_seen: string;
+  created_at: string;
+};
+
+// ── Safe Client Access ──
+function getClient(): SupabaseClient {
+  if (!supabaseInstance) {
+    throw new Error(
+      "Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in your .env.local file."
+    );
+  }
+  return supabaseInstance;
+}
+
+// ── Guest Operations ──
+export const upsertGuest = async (guest: { id: string; nickname: string; country: string }) => {
+  const client = getClient();
+  const { data: existing } = await client
+    .from("guests")
+    .select("id")
+    .eq("id", guest.id)
+    .single();
+
+  if (existing) {
+    const { error } = await client
+      .from("guests")
+      .update({ nickname: guest.nickname, country: guest.country })
+      .eq("id", guest.id);
+    if (error) throw error;
+  } else {
+    const { error } = await client
+      .from("guests")
+      .insert(guest);
+    if (error) throw error;
+  }
+};
+
+export const getGuestById = async (id: string): Promise<DbGuest | null> => {
+  const client = getClient();
+  const { data, error } = await client
+    .from("guests")
+    .select("*")
+    .eq("id", id)
+    .single();
+  if (error) return null;
+  return data as DbGuest;
+};
+
 // ── Throw Operations ──
-// Throws are inserted directly from the useThrows hook (client-side)
+export const insertThrow = async (throwData: {
+  guest_id: string;
+  nickname: string;
+  thrower_country: string;
+  target_country: string;
+  object: string;
+  reason: string;
+}): Promise<boolean> => {
+  const client = getClient();
+  const { error } = await client.from("throws").insert({
+    guest_id: throwData.guest_id,
+    nickname: throwData.nickname,
+    thrower_country: throwData.thrower_country,
+    target_country: throwData.target_country,
+    object: throwData.object,
+    reason: throwData.reason || "",
+  });
+  if (error) throw error;
+  return true;
+};
+
+export const fetchRecentThrows = async (limit = 50): Promise<DbThrow[]> => {
+  const client = getClient();
+  const { data, error } = await client
+    .from("throws")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data || []) as DbThrow[];
+};
+
+export const fetchHeatData = async (): Promise<Record<string, number>> => {
+  const client = getClient();
+  const { data, error } = await client
+    .from("throws")
+    .select("target_country");
+  if (error) throw error;
+  const counts: Record<string, number> = {};
+  (data as DbThrow[]).forEach((t) => {
+    counts[t.target_country] = (counts[t.target_country] || 0) + 1;
+  });
+  return counts;
+};
+
+// ── User Presence Operations ──
+export const upsertPresence = async (presence: {
+  guest_id: string;
+  nickname: string;
+  country: string;
+}) => {
+  const client = getClient();
+  const { error } = await client.from("user_presence").upsert(
+    {
+      guest_id: presence.guest_id,
+      nickname: presence.nickname,
+      country: presence.country,
+      last_seen: new Date().toISOString(),
+    },
+    { onConflict: "guest_id" }
+  );
+  if (error) throw error;
+};
+
+export const removePresence = async (guestId: string) => {
+  const client = getClient();
+  const { error } = await client
+    .from("user_presence")
+    .delete()
+    .eq("guest_id", guestId);
+  if (error) throw error;
+};
+
+export const fetchOnlineUsers = async (): Promise<DbUserPresence[]> => {
+  const client = getClient();
+  const staleThreshold = new Date(Date.now() - 70 * 1000).toISOString(); // 70 seconds
+  const { data, error } = await client
+    .from("user_presence")
+    .select("*")
+    .gt("last_seen", staleThreshold);
+  if (error) throw error;
+  return (data || []) as DbUserPresence[];
+};
 
 // ── Country Statistics ──
 export const getCountryStats = async (countryCode: string) => {
-  if (!isConfigured) {
-    return {
-      country_code: countryCode,
-      total_throws: 0,
-      most_used_object: { object: "", count: 0 },
-      recent_reasons: [],
-      daily_count: 0,
-      weekly_count: 0,
-      activity_level: "low" as const,
-    };
-  }
-
   const client = getClient();
   const { data: throws, error } = await client
     .from("throws")
@@ -66,21 +198,18 @@ export const getCountryStats = async (countryCode: string) => {
   const data = (throws || []) as DbThrow[];
   const totalThrows = data.length;
 
-  // Most used object
   const objectCounts: Record<string, number> = {};
   data.forEach((t) => {
     objectCounts[t.object] = (objectCounts[t.object] || 0) + 1;
   });
   const mostUsedObject = Object.entries(objectCounts).sort((a, b) => b[1] - a[1])[0];
 
-  // Recent reasons (last 10)
   const recentReasons = data.slice(0, 10).map((t) => ({
     reason: t.reason || "",
     nickname: t.nickname,
     object: t.object,
   }));
 
-  // Daily and weekly counts
   const now = Date.now();
   const dayMs = 24 * 60 * 60 * 1000;
   const weekMs = 7 * dayMs;
@@ -103,12 +232,8 @@ export const getCountryStats = async (countryCode: string) => {
 
 // ── Leaderboard Queries ──
 export const getLeaderboard = async (timePeriod: "daily" | "weekly" | "all_time" = "all_time") => {
-  if (!isConfigured) {
-    return { countryLeaderboard: [], objectLeaderboard: [] };
-  }
-
   const client = getClient();
-  let query = client.from("throws").select("target_country, object");
+  let query = client.from("throws").select("target_country, object") as any;
 
   if (timePeriod === "daily") {
     const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
@@ -123,7 +248,6 @@ export const getLeaderboard = async (timePeriod: "daily" | "weekly" | "all_time"
 
   const rows = (data || []) as { target_country: string; object: string }[];
 
-  // Count by country
   const countryCounts: Record<string, number> = {};
   const objectCounts: Record<string, number> = {};
 
@@ -144,7 +268,77 @@ export const getLeaderboard = async (timePeriod: "daily" | "weekly" | "all_time"
   return { countryLeaderboard, objectLeaderboard };
 };
 
-// Create a mock supabase client that returns empty results when not configured
+// ── Realtime Subscriptions ──
+// Each call creates a UNIQUE channel name so multiple subscriptions never collide.
+
+export function createThrowsSubscription(
+  callback: (throwData: DbThrow) => void,
+  onError?: (error: Error) => void
+): () => void {
+  const client = getClient();
+  const channelName = nextChannelName("throws");
+  const channel = client
+    .channel(channelName)
+    .on(
+      "postgres_changes",
+      {
+        event: "INSERT",
+        schema: "public",
+        table: "throws",
+      },
+      (payload: RealtimePostgresChangesPayload<DbThrow>) => {
+        const newThrow = payload.new as DbThrow;
+        if (newThrow && newThrow.id) {
+          callback(newThrow);
+        }
+      }
+    )
+    .subscribe((status) => {
+      if (status === "CHANNEL_ERROR" && onError) {
+        onError(new Error("Realtime subscription failed"));
+      }
+    });
+
+  return () => {
+    client.removeChannel(channel);
+  };
+}
+
+export function createPresenceSubscription(
+  callback: () => void,
+  onError?: (error: Error) => void
+): () => void {
+  const client = getClient();
+  const channelName = nextChannelName("presence");
+  const channel = client
+    .channel(channelName)
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "user_presence",
+      },
+      () => {
+        callback();
+      }
+    )
+    .subscribe((status) => {
+      if (status === "CHANNEL_ERROR" && onError) {
+        onError(new Error("Presence subscription failed"));
+      }
+    });
+
+  return () => {
+    client.removeChannel(channel);
+  };
+}
+
+// Legacy aliases for backward compatibility — same functionality, unique channels each call
+export const subscribeToThrows = createThrowsSubscription;
+export const subscribeToPresence = createPresenceSubscription;
+
+// ── Mock Client (for when Supabase is not configured) ──
 function createMockSupabase(): SupabaseClient {
   const mockResponse = (data: any = []) => ({
     data,
@@ -154,14 +348,18 @@ function createMockSupabase(): SupabaseClient {
     statusText: "OK",
   });
 
-  const mockQuery = {
+  const mockQuery: any = {
     select: () => mockQuery,
     from: () => mockQuery,
     eq: () => mockQuery,
     gte: () => mockQuery,
     order: () => mockQuery,
     limit: () => mockQuery,
-    insert: () => Promise.resolve(mockResponse()),
+    insert: () => mockQuery,
+    update: () => mockQuery,
+    delete: () => mockQuery,
+    upsert: () => Promise.resolve(mockResponse()),
+    single: () => Promise.resolve(mockResponse(null)),
     then: (resolve: any) => resolve(mockResponse([])),
   };
 
@@ -177,10 +375,9 @@ function createMockSupabase(): SupabaseClient {
   });
 }
 
-// Export supabase client — gracefully falls back to mock if not configured
+// ── Exports ──
 export const supabase = isConfigured ? getClient() : createMockSupabase();
 
-// Only export getSupabaseClient if configured (avoids the throwing getClient)
 export const getSupabaseClient = () => {
   if (!isConfigured) {
     console.warn("Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in your .env.local file.");
@@ -189,3 +386,4 @@ export const getSupabaseClient = () => {
   return getClient();
 };
 
+export const isSupabaseConfigured = isConfigured;

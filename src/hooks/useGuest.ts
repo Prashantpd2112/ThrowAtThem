@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { generateGuestId, generateNickname, getLocalStorage, setLocalStorage } from "@/lib/utils";
+import { upsertGuest, isSupabaseConfigured } from "@/lib/supabase";
 
 interface GuestData {
   id: string;
@@ -12,6 +13,7 @@ interface GuestData {
 export function useGuest() {
   const [guest, setGuest] = useState<GuestData | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
 
   useEffect(() => {
     const saved = getLocalStorage<GuestData | null>("wt_guest", null);
@@ -29,6 +31,16 @@ export function useGuest() {
     };
     setLocalStorage("wt_guest", newGuest);
     setGuest(newGuest);
+    setSyncError(null);
+
+    // Sync to Supabase in the background (fire and forget)
+    if (isSupabaseConfigured) {
+      upsertGuest(newGuest).catch((err) => {
+        console.warn("Failed to sync guest to Supabase:", err);
+        setSyncError("Guest sync failed, but you can still play");
+      });
+    }
+
     return newGuest;
   }, []);
 
@@ -37,6 +49,12 @@ export function useGuest() {
     const updated = { ...guest, nickname: nickname || generateNickname() };
     setLocalStorage("wt_guest", updated);
     setGuest(updated);
+
+    if (isSupabaseConfigured) {
+      upsertGuest(updated).catch((err) => {
+        console.warn("Failed to sync nickname to Supabase:", err);
+      });
+    }
   }, [guest]);
 
   const clearGuest = useCallback(() => {
@@ -50,5 +68,6 @@ export function useGuest() {
     createGuest,
     updateNickname,
     clearGuest,
+    syncError,
   };
 }

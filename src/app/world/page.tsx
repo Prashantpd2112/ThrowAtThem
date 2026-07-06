@@ -13,7 +13,15 @@ import { useGuest } from "@/hooks/useGuest";
 import { useThrows } from "@/hooks/useThrows";
 import { COUNTRIES, getCountryByCode } from "@/data/countries";
 import { getObjectById } from "@/data/objects";
-import { supabase, DbThrow } from "@/lib/supabase";
+import {
+  fetchHeatData,
+  upsertPresence,
+  removePresence,
+  fetchOnlineUsers,
+  subscribeToThrows,
+  subscribeToPresence,
+  isSupabaseConfigured,
+} from "@/lib/supabase";
 
 export default function WorldPage() {
   const router = useRouter();
@@ -26,11 +34,15 @@ export default function WorldPage() {
   const [selectedObject, setSelectedObject] = useState<string>("tomato");
   const [reason, setReason] = useState("");
   const [heatData, setHeatData] = useState<Record<string, number>>({});
-  const [onlineCount, setOnlineCount] = useState(42);
+  const [onlineCount, setOnlineCount] = useState(0);
   const [highlightedCountry, setHighlightedCountry] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [presenceError, setPresenceError] = useState<string | null>(null);
   const mapRef = useRef<HTMLDivElement>(null);
   const throwBtnRef = useRef<HTMLButtonElement>(null);
+  const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const presenceUnsubscribeRef = useRef<(() => void) | null>(null);
+  const throwsUnsubscribeRef = useRef<(() => void) | null>(null);
 
   // Redirect if no guest
   useEffect(() => {
@@ -39,41 +51,126 @@ export default function WorldPage() {
     }
   }, [isLoaded, guest, router]);
 
-  // Fetch heat data
+  // ── User Presence (online tracking) ──
   useEffect(() => {
-    const fetchHeatData = async () => {
+    if (!isLoaded || !guest || !isSupabaseConfigured) return;
+
+    // Mark user online
+    const markOnline = async () => {
       try {
-        const { data, error } = await supabase
-          .from("throws")
-          .select("target_country");
-        if (error) throw error;
-        const counts: Record<string, number> = {};
-        (data as DbThrow[]).forEach((t) => {
-          counts[t.target_country] = (counts[t.target_country] || 0) + 1;
+        await upsertPresence({
+          guest_id: guest.id,
+          nickname: guest.nickname,
+          country: guest.country,
         });
-        setHeatData(counts);
+        setPresenceError(null);
+      } catch (err) {
+        console.warn("Failed to mark presence:", err);
+        setPresenceError("Connection issue");
+      }
+    };
+
+    markOnline();
+
+    // Heartbeat every 30 seconds
+    heartbeatRef.current = setInterval(async () => {
+      try {
+        await upsertPresence({
+          guest_id: guest.id,
+          nickname: guest.nickname,
+          country: guest.country,
+        });
+      } catch {
+        // Silently handle heartbeat failure
+      }
+    }, 30000);
+
+    // Fetch initial online count
+    const updateOnlineCount = async () => {
+      try {
+        const users = await fetchOnlineUsers();
+        setOnlineCount(users.length);
+      } catch {
+        // Silently handle
+      }
+    };
+    updateOnlineCount();
+
+    // Subscribe to presence changes
+    presenceUnsubscribeRef.current = subscribeToPresence(
+      async () => {
+        try {
+          const users = await fetchOnlineUsers();
+          setOnlineCount(users.length);
+        } catch {
+          // Silently handle
+        }
+      },
+      (err: Error) => {
+        console.warn("Presence subscription error:", err);
+      }
+    );
+
+    // Cleanup on unmount
+    return () => {
+      if (heartbeatRef.current) {
+        clearInterval(heartbeatRef.current);
+      }
+      if (presenceUnsubscribeRef.current) {
+        presenceUnsubscribeRef.current();
+      }
+      // Remove presence when leaving
+      removePresence(guest.id).catch(() => {});
+    };
+  }, [isLoaded, guest]);
+
+  // ── Heat Data with Realtime Updates ──
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+
+    const loadHeatData = async () => {
+      try {
+        const data = await fetchHeatData();
+        setHeatData(data);
       } catch {
         // silently handle
       }
     };
-    fetchHeatData();
-    const interval = setInterval(fetchHeatData, 30000);
-    return () => clearInterval(interval);
-  }, []);
 
-  // Simulate online count
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setOnlineCount((prev) => Math.max(10, prev + Math.floor(Math.random() * 6) - 3));
-    }, 8000);
-    return () => clearInterval(interval);
+    loadHeatData();
+
+    // Subscribe to new throws to update heat data in realtime
+    throwsUnsubscribeRef.current = subscribeToThrows(
+      (newThrow) => {
+        setHeatData((prev) => ({
+          ...prev,
+          [newThrow.target_country]: (prev[newThrow.target_country] || 0) + 1,
+        }));
+      },
+      (err: Error) => {
+        console.warn("Throws subscription error:", err);
+      }
+    );
+
+    return () => {
+      if (throwsUnsubscribeRef.current) {
+        throwsUnsubscribeRef.current();
+      }
+    };
   }, []);
 
   // Logout handler
-  const handleLogout = useCallback(() => {
+  const handleLogout = useCallback(async () => {
+    if (guest && isSupabaseConfigured) {
+      try {
+        await removePresence(guest.id);
+      } catch {
+        // silently handle
+      }
+    }
     clearGuest();
     router.replace("/");
-  }, [clearGuest, router]);
+  }, [clearGuest, guest, router]);
 
   const handleCountryClick = useCallback((code: string) => {
     setSelectedCountry((prev) => (prev === code ? null : code));
@@ -86,7 +183,6 @@ export default function WorldPage() {
         const normalized = query.toLowerCase().trim();
         const found = getCountryByCode(query.toUpperCase()) || getCountryByCode(query);
         if (found) {
-          // Highlight as suggestion only, don't auto-select
           setHighlightedCountry(found.code);
         } else {
           const foundByName = COUNTRIES.find(
@@ -193,7 +289,7 @@ export default function WorldPage() {
       {/* Fixed throw animation layer - always on top */}
       <ThrowAnimation />
 
-      {/* Header - fixed height, shrink-0 prevents stretching */}
+      {/* Header */}
       <div className="shrink-0">
         <Navigation
           nickname={guest.nickname}
@@ -228,6 +324,15 @@ export default function WorldPage() {
         </div>
       </div>
 
+      {/* Connection status banner */}
+      {presenceError && (
+        <div className="shrink-0 px-4 py-1 bg-yellow-50 border-b border-yellow-100">
+          <p className="text-[10px] font-medium text-yellow-700 text-center">
+            {presenceError} — data will still sync
+          </p>
+        </div>
+      )}
+
       {/* MAIN GRID */}
       <div className="flex-1 min-h-0 px-3 md:px-4 pt-3 pb-3 md:pb-4">
         <div className="h-full grid grid-cols-1 md:grid-cols-12 gap-3 md:gap-4">
@@ -240,7 +345,6 @@ export default function WorldPage() {
 
           {/* CENTER — Map + Bottom Throw Bar */}
           <div className="col-span-1 md:col-span-6 min-h-0 flex flex-col gap-3 md:gap-4">
-            {/* Map container - feels like one rounded unit */}
             <div className="flex-1 min-h-0 relative overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white/70 backdrop-blur-sm shadow-[0_4px_20px_rgba(0,0,0,0.04)]">
               <div ref={mapRef} className="absolute inset-0">
                 <WorldMap
@@ -251,14 +355,12 @@ export default function WorldPage() {
                   onBackgroundClick={() => setSelectedCountry(null)}
                 />
               </div>
-
             </div>
 
-            {/* BOTTOM BAR — Throw panel compact horizontal under the map */}
+            {/* BOTTOM BAR — Throw panel */}
             <div className="shrink-0">
               <div className="rounded-2xl bg-white/85 backdrop-blur-sm border border-[#E5E7EB] shadow-[0_4px_20px_rgba(0,0,0,0.04)] p-3 md:p-4">
                 <div className="flex flex-col md:flex-row md:items-center gap-3">
-                  {/* Throw objects */}
                   <div className="flex-1 min-w-0 flex items-center gap-2 overflow-x-auto scrollbar-none">
                     <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest shrink-0 mr-1">Throw</span>
                     <div className="flex items-center gap-1.5">
@@ -293,13 +395,12 @@ export default function WorldPage() {
 
                   <div className="hidden md:block w-px h-10 bg-gray-200" />
 
-                  {/* Right: reason + throw button */}
                   <div className="flex items-center gap-2 shrink-0">
                     <input
                       type="text"
                       value={reason}
                       onChange={(e) => setReason(e.target.value.slice(0, 60))}
-                      placeholder='Reason (optional)'
+                      placeholder="Reason (optional)"
                       maxLength={60}
                       disabled={!selectedCountry}
                       className="h-10 w-32 md:w-44 px-3 rounded-full bg-white border border-[#E5E7EB] text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#F97316] focus:ring-2 focus:ring-orange-100 disabled:opacity-50"
@@ -342,7 +443,7 @@ export default function WorldPage() {
         </div>
       </div>
 
-      {/* Mobile leaderboard/feed - below the map */}
+      {/* Mobile leaderboard/feed */}
       <div className="md:hidden shrink-0 px-3 pb-3 grid grid-cols-2 gap-3">
         <Leaderboard />
         <LiveFeed />

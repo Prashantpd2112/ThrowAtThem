@@ -1,55 +1,83 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ThrowEntry } from "@/lib/types";
 import { formatRelativeTime } from "@/lib/utils";
-import { supabase, DbThrow } from "@/lib/supabase";
+import { fetchRecentThrows, subscribeToThrows, isSupabaseConfigured } from "@/lib/supabase";
 import { getCountryByCode } from "@/data/countries";
 import { getObjectById } from "@/data/objects";
 
 export function LiveFeed() {
   const [throws, setThrows] = useState<ThrowEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [realtimeError, setRealtimeError] = useState<string | null>(null);
+  const unsubscribeRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
-    fetchRecentThrows();
-    const interval = setInterval(fetchRecentThrows, 10000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const fetchRecentThrows = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("throws")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(25);
-
-      if (error) throw error;
-
-      const enriched = (data as DbThrow[]).map((t) => {
-        const country = getCountryByCode(t.target_country);
-        const obj = getObjectById(t.object);
-        return {
-          id: t.id,
-          guest_id: t.guest_id,
-          nickname: t.nickname,
-          thrower_country: t.thrower_country,
-          target_country: t.target_country,
-          country_name: country?.name || t.target_country,
-          object: obj?.emoji || "❓",
-          reason: t.reason,
-          created_at: t.created_at,
-        };
-      });
-      setThrows(enriched);
-    } catch {
-      // Silently handle
-    } finally {
+    if (!isSupabaseConfigured) {
       setIsLoading(false);
+      return;
     }
-  };
+
+    fetchRecentThrows(50)
+      .then((data) => {
+        const enriched = data.map((t) => {
+          const country = getCountryByCode(t.target_country);
+          const obj = getObjectById(t.object);
+          return {
+            id: t.id,
+            player_id: t.guest_id,
+            nickname: t.nickname,
+            thrower_country: t.thrower_country,
+            target_country: t.target_country,
+            country_name: country?.name || t.target_country,
+            object: obj?.emoji || "❓",
+            reason: t.reason,
+            created_at: t.created_at,
+          };
+        });
+        setThrows(enriched);
+      })
+      .catch(() => {
+        // Silently handle initial fetch error
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
+
+    // Subscribe to realtime throws
+    unsubscribeRef.current = subscribeToThrows(
+      (newThrow) => {
+        const country = getCountryByCode(newThrow.target_country);
+        const obj = getObjectById(newThrow.object);
+        const entry: ThrowEntry = {
+          id: newThrow.id,
+          player_id: newThrow.guest_id,
+          nickname: newThrow.nickname,
+          thrower_country: newThrow.thrower_country,
+          target_country: newThrow.target_country,
+          country_name: country?.name || newThrow.target_country,
+          object: obj?.emoji || "❓",
+          reason: newThrow.reason,
+          created_at: newThrow.created_at,
+        };
+        setThrows((prev) => [entry, ...prev].slice(0, 50));
+      },
+      (err) => {
+        setRealtimeError("Live connection lost. Reconnecting...");
+        console.warn("LiveFeed realtime error:", err);
+        // Clear error after a few seconds
+        setTimeout(() => setRealtimeError(null), 5000);
+      }
+    );
+
+    return () => {
+      if (unsubscribeRef.current) {
+        unsubscribeRef.current();
+      }
+    };
+  }, []);
 
   return (
     <div className="bg-white rounded-2xl border border-[#E5E7EB] shadow-[0_4px_20px_rgba(0,0,0,0.04)] flex flex-col h-full overflow-hidden">
@@ -66,6 +94,16 @@ export function LiveFeed() {
           {throws.length} throws
         </span>
       </div>
+
+      {/* Realtime connection status */}
+      {realtimeError && (
+        <div className="shrink-0 px-4 py-1.5 bg-yellow-50 border-b border-yellow-100">
+          <p className="text-[10px] font-medium text-yellow-700 flex items-center gap-1.5">
+            <span className="inline-block w-1.5 h-1.5 rounded-full bg-yellow-500" />
+            {realtimeError}
+          </p>
+        </div>
+      )}
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto px-2 py-1.5 space-y-0.5">

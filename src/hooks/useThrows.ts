@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { supabase } from "@/lib/supabase";
+import { insertThrow, isSupabaseConfigured } from "@/lib/supabase";
 
 export function useThrows() {
   const [error, setError] = useState<string | null>(null);
@@ -16,8 +16,12 @@ export function useThrows() {
       reason: string
     ) => {
       setError(null);
+      if (!isSupabaseConfigured) {
+        setError("Supabase not configured");
+        return false;
+      }
       try {
-        const { error } = await supabase.from("throws").insert({
+        await insertThrow({
           guest_id: guestId,
           nickname,
           thrower_country: throwerCountry,
@@ -25,11 +29,10 @@ export function useThrows() {
           object: objectId,
           reason,
         });
-
-        if (error) throw error;
         return true;
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to submit throw");
+        const message = err instanceof Error ? err.message : "Failed to submit throw";
+        setError(message);
         return false;
       }
     },
