@@ -19,7 +19,7 @@ function StatBar({ label, value, max, color }: { label: string; value: number; m
   return (
     <div className="space-y-1">
       <div className="flex justify-between text-xs">
-        <span className="text-gray-500">{label}</span>
+        <span className="text-gray-500 max-md:text-white/60">{label}</span>
         <span className="font-semibold">{value}</span>
       </div>
       <div className="h-2 bg-gray-200 dark:bg-white/10 rounded-full overflow-hidden">
@@ -77,10 +77,10 @@ export function CountryPopup({ countryCode, isOpen, onClose }: CountryPopupProps
           animate={{ opacity: 1, y: 0 }}
         >
           <span className="text-5xl block mb-2">{country.flag}</span>
-          <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-1">
+          <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-1 max-md:text-white/90">
             {country.name}
           </h2>
-          <span className="text-xs text-gray-400">{countryCode}</span>
+          <span className="text-xs text-gray-400 max-md:text-white/50">{countryCode}</span>
         </motion.div>
 
         {isLoading ? (
@@ -111,23 +111,23 @@ export function CountryPopup({ countryCode, isOpen, onClose }: CountryPopupProps
 
             {/* Stats Grid */}
             <div className="grid grid-cols-2 gap-3">
-              <div className="bg-black/5 dark:bg-white/5 rounded-xl p-3">
+              <div className="bg-black/5 dark:bg-white/5 rounded-xl p-3 max-md:bg-white/10">
                 <p className="text-2xl font-bold text-wt-orange">{stats.total_throws}</p>
-                <p className="text-xs text-gray-500">Total Throws</p>
+                <p className="text-xs text-gray-500 max-md:text-white/60">Total Throws</p>
               </div>
-              <div className="bg-black/5 dark:bg-white/5 rounded-xl p-3">
+              <div className="bg-black/5 dark:bg-white/5 rounded-xl p-3 max-md:bg-white/10">
                 <p className="text-2xl font-bold text-wt-blue">{stats.weekly_count}</p>
-                <p className="text-xs text-gray-500">This Week</p>
+                <p className="text-xs text-gray-500 max-md:text-white/60">This Week</p>
               </div>
             </div>
 
             {/* Most Used Object */}
             {mostUsedObj && (
-              <div className="bg-gradient-to-r from-wt-orange/5 to-wt-pink/5 rounded-xl p-4">
-                <p className="text-xs text-gray-500 mb-2 font-semibold">Most Used Object</p>
+              <div className="bg-gradient-to-r from-wt-orange/5 to-wt-pink/5 rounded-xl p-4 max-md:from-wt-orange/10 max-md:to-wt-pink/10">
+                <p className="text-xs text-gray-500 mb-2 font-semibold max-md:text-white/60">Most Used Object</p>
                 <div className="flex items-center justify-center gap-2">
                   <span className="text-3xl">{mostUsedObj.emoji}</span>
-                  <span className="font-bold text-gray-700 dark:text-gray-200">{mostUsedObj.name}</span>
+                  <span className="font-bold text-gray-700 dark:text-gray-200 max-md:text-white/85">{mostUsedObj.name}</span>
                   <span className="text-sm text-gray-400">({stats.most_used_object.count}x)</span>
                 </div>
               </div>
@@ -158,9 +158,9 @@ export function CountryPopup({ countryCode, isOpen, onClose }: CountryPopupProps
                     .filter((r) => r.reason)
                     .slice(0, 5)
                     .map((r, i) => (
-                      <div key={i} className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300 bg-black/5 dark:bg-white/5 rounded-lg px-3 py-1.5">
+                      <div key={i} className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300 bg-black/5 dark:bg-white/5 rounded-lg px-3 py-1.5 max-md:bg-white/10 max-md:text-white/70">
                         <span className="font-semibold text-wt-orange">{r.nickname}</span>
-                        <span className="text-gray-400">said</span>
+                        <span className="text-gray-400 max-md:text-white/40">said</span>
                         <span className="italic">&ldquo;{r.reason}&rdquo;</span>
                       </div>
                     ))}
@@ -170,9 +170,9 @@ export function CountryPopup({ countryCode, isOpen, onClose }: CountryPopupProps
           </div>
         ) : (
           <div className="mt-6 py-4">
-            <p className="text-gray-400 text-sm">No statistics available yet.</p>
+            <p className="text-gray-400 text-sm max-md:text-white/60">No statistics available yet.</p>
             <p className="text-2xl mt-2">💫</p>
-            <p className="text-xs text-gray-400 mt-2">Be the first to throw something!</p>
+            <p className="text-xs text-gray-400 mt-2 max-md:text-white/50">Be the first to throw something!</p>
           </div>
         )}
       </div>

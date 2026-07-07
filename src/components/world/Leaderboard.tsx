@@ -27,11 +27,11 @@ function ReasonsPanel({ countryCode }: { countryCode: string }) {
       >
         {isLoading ? (
           <div className="text-center py-2">
-            <p className="text-[10px] text-gray-400">Loading...</p>
+            <p className="text-[10px] text-gray-400 max-md:text-white/40">Loading...</p>
           </div>
         ) : reasons.length === 0 ? (
           <div className="text-center py-2">
-            <p className="text-[10px] text-gray-400">No reasons yet</p>
+            <p className="text-[10px] text-gray-400 max-md:text-white/40">No reasons yet</p>
           </div>
         ) : (
           reasons.map((r) => (
@@ -171,8 +171,8 @@ export function Leaderboard() {
   return (
     <div className="relative bg-white rounded-2xl border border-[#E5E7EB] shadow-[0_4px_20px_rgba(0,0,0,0.04)] flex flex-col h-full overflow-hidden">
       {/* Header */}
-      <div className="shrink-0 flex items-center justify-between px-4 pt-3 pb-2.5 border-b border-gray-100">
-        <h3 className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
+      <div className="shrink-0 flex items-center justify-between px-4 pt-3 pb-2.5 border-b border-gray-100 max-md:border-b-white/10">
+        <h3 className="text-xs font-bold text-gray-800 flex items-center gap-1.5 max-md:text-white/90">
           <span>🏆</span> Leaderboard
         </h3>
           <div className="flex gap-0.5 bg-gray-100 rounded-lg p-0.5">
@@ -183,7 +183,7 @@ export function Leaderboard() {
                 className={`text-[10px] font-semibold px-2.5 py-1 rounded-md transition-all duration-200 ${
                   activePeriod === period.value
                     ? "bg-orange-500 text-white shadow-sm"
-                    : "text-gray-500 hover:text-gray-800"
+                    : "text-gray-500 hover:text-gray-800 max-md:text-white/60 max-md:hover:text-white/90"
                 }`}
               >
                 {period.label}
@@ -200,7 +200,7 @@ export function Leaderboard() {
             className={`text-[10px] font-semibold px-3 py-1.5 rounded-lg transition-all duration-200 ${
               activeTab === "countries"
                 ? "bg-orange-500 text-white shadow-sm"
-                : "text-gray-500 hover:text-gray-800 bg-gray-100"
+                : "text-gray-500 hover:text-gray-800 bg-gray-100 max-md:text-white/60 max-md:bg-white/10 max-md:hover:text-white/90"
             }`}
           >
             🇺🇳 Countries
@@ -210,7 +210,7 @@ export function Leaderboard() {
             className={`text-[10px] font-semibold px-3 py-1.5 rounded-lg transition-all duration-200 ${
               activeTab === "objects"
                 ? "bg-orange-500 text-white shadow-sm"
-                : "text-gray-500 hover:text-gray-800 bg-gray-100"
+                : "text-gray-500 hover:text-gray-800 bg-gray-100 max-md:text-white/60 max-md:bg-white/10 max-md:hover:text-white/90"
             }`}
           >
             🎯 Objects
@@ -225,7 +225,7 @@ export function Leaderboard() {
           disabled={isRefreshing}
           aria-label="Refresh leaderboard"
           title="Refresh leaderboard"
-          className={`p-0 m-0 bg-transparent border-0 text-gray-400 transition-colors duration-200 hover:text-gray-700 ${
+          className={`p-0 m-0 bg-transparent border-0 text-gray-400 transition-colors duration-200 hover:text-gray-700 max-md:text-white/50 max-md:hover:text-white/80 ${
             isRefreshing ? "cursor-not-allowed opacity-60" : "cursor-pointer"
           }`}
         >
@@ -279,8 +279,8 @@ export function Leaderboard() {
             <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-orange-100 to-pink-100 flex items-center justify-center mb-2">
               <span className="text-xl">🏆</span>
             </div>
-            <p className="text-xs font-semibold text-gray-800">No rankings yet</p>
-            <p className="text-[10px] text-gray-500 mt-0.5">Be the first to throw!</p>
+            <p className="text-xs font-semibold text-gray-800 max-md:text-white/85">No rankings yet</p>
+            <p className="text-[10px] text-gray-500 mt-0.5 max-md:text-white/50">Be the first to throw!</p>
           </div>
         ) : activeTab === "countries" ? (
           countryLeaderboard.map((entry, i) => {
@@ -304,18 +304,18 @@ export function Leaderboard() {
                     {i < 3 ? (
                       <span className="text-sm">{MEDALS[i]}</span>
                     ) : (
-                      <span className="text-[10px] font-bold text-gray-400">#{i + 1}</span>
+                      <span className="text-[10px] font-bold text-gray-400 max-md:text-white/50">#{i + 1}</span>
                     )}
                   </div>
                   <span className="text-base leading-none">{entry.flag}</span>
-                  <span className="flex-1 text-[11px] font-semibold text-gray-800 truncate">
+                  <span className="flex-1 text-[11px] font-semibold text-gray-800 truncate max-md:text-white/85">
                     {entry.country_name}
                   </span>
 
                   {/* Object dropdown trigger: 🍅 55 throws ▼ */}
-                  <button
-                    onClick={() => toggleObject(entry.country_code)}
-                    className="flex items-center gap-1 pl-1.5 pr-1 py-0.5 rounded-md hover:bg-gray-100 transition-colors"
+            <button
+              onClick={() => toggleObject(entry.country_code)}
+              className="flex items-center gap-1 pl-1.5 pr-1 py-0.5 rounded-md hover:bg-gray-100 transition-colors max-md:hover:bg-white/10"
                     aria-label={isObjectOpen ? "Hide object breakdown" : "Show object breakdown"}
                   >
                     {mostUsed && (
@@ -338,13 +338,13 @@ export function Leaderboard() {
                   {/* Reason dropdown trigger: Reasons 3 ▼ */}
                   <button
                     onClick={() => toggleReason(entry.country_code)}
-                    className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-gray-50 border border-gray-100 hover:bg-gray-100 transition-colors"
+                    className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-gray-50 border border-gray-100 hover:bg-gray-100 transition-colors max-md:bg-white/10 max-md:border-white/10 max-md:hover:bg-white/15"
                     aria-label={isReasonOpen ? "Hide reasons" : "Show reasons"}
                   >
-                    <span className="text-[9px] font-semibold text-gray-500">
+                    <span className="text-[9px] font-semibold text-gray-500 max-md:text-white/60">
                       {reasonCount === 1 ? "Reason" : "Reasons"}
                     </span>
-                    <span className="text-[10px] font-bold text-gray-700 tabular-nums">
+                    <span className="text-[10px] font-bold text-gray-700 tabular-nums max-md:text-white/80">
                       {reasonCount}
                     </span>
                     <motion.span
@@ -375,10 +375,10 @@ export function Leaderboard() {
                             className="flex items-center gap-2 py-0.5"
                           >
                             <span className="text-sm w-5 text-center">{obj.object_emoji}</span>
-                            <span className="flex-1 text-[10px] text-gray-600 capitalize">
+                            <span className="flex-1 text-[10px] text-gray-600 capitalize max-md:text-white/60">
                               {obj.object_name}
                             </span>
-                            <span className="text-[10px] font-semibold text-gray-800 tabular-nums">
+                            <span className="text-[10px] font-semibold text-gray-800 tabular-nums max-md:text-white/80">
                               {obj.count}
                             </span>
                           </div>
@@ -411,8 +411,8 @@ export function Leaderboard() {
             <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-orange-100 to-pink-100 flex items-center justify-center mb-2">
               <span className="text-xl">🎯</span>
             </div>
-            <p className="text-xs font-semibold text-gray-800">No objects used yet</p>
-            <p className="text-[10px] text-gray-500 mt-0.5">Start throwing to see stats!</p>
+            <p className="text-xs font-semibold text-gray-800 max-md:text-white/85">No objects used yet</p>
+            <p className="text-[10px] text-gray-500 mt-0.5 max-md:text-white/50">Start throwing to see stats!</p>
           </div>
         ) : (
           objectLeaderboard.map((entry, i) => (
@@ -427,16 +427,15 @@ export function Leaderboard() {
                 {i < 3 ? (
                   <span className="text-sm">{MEDALS[i]}</span>
                 ) : (
-                  <span className="text-[10px] font-bold text-gray-400">#{i + 1}</span>
+                  <span className="text-[10px] font-bold text-gray-400 max-md:text-white/50">#{i + 1}</span>
                 )}
               </div>
-              <span className="text-base leading-none">{entry.emoji}</span>
-              <span className="flex-1 text-[11px] font-semibold text-gray-800 capitalize">
+              <span className="text-base leading-none">{entry.emoji}</span>                  <span className="flex-1 text-[11px] font-semibold text-gray-800 capitalize max-md:text-white/85">
                 {entry.object}
               </span>
               <div className="flex items-center gap-1">
                 <span className="text-[11px] font-bold text-orange-500">{entry.count}</span>
-                <span className="text-[9px] text-gray-400">used</span>
+                <span className="text-[9px] text-gray-400 max-md:text-white/50">used</span>
               </div>
             </motion.div>
           ))

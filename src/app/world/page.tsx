@@ -8,6 +8,7 @@ import { WorldMap } from "@/components/world/WorldMap";
 import { LiveFeed } from "@/components/world/LiveFeed";
 import { Leaderboard } from "@/components/world/Leaderboard";
 import { CountryPopup } from "@/components/world/CountryPopup";
+import { SpaceBackground } from "@/components/world/SpaceBackground";
 import { ThrowAnimation, triggerThrowAnimation } from "@/components/world/ThrowAnimation";
 import { useGuest } from "@/hooks/useGuest";
 import { useThrows } from "@/hooks/useThrows";
@@ -579,114 +580,232 @@ export default function WorldPage() {
   const targetCountry = selectedCountry ? getCountryByCode(selectedCountry) : null;
 
   return (
-    <div className="h-screen flex flex-col ambient-bg grid-bg overflow-hidden">
+    <div className="min-h-screen md:h-screen flex flex-col bg-[#03040A] overflow-y-auto md:overflow-hidden">
+      {/* Space background - fixed behind everything */}
+      <SpaceBackground />
+
       {/* Fixed throw animation layer - always on top */}
       <ThrowAnimation />
 
-      {/* Header */}
-      <div className="shrink-0">
-        <Navigation
-          nickname={guest.nickname}
-          countryFlag={guestCountry?.flag || "🌍"}
-          onlineCount={onlineCount}
-          selectedCountryName={targetCountry?.name || null}
-          selectedCountryFlag={targetCountry?.flag || null}
-          onSearchCountry={handleSearchCountry}
-          onSearchConfirm={handleSearchConfirm}
-          onLogout={handleLogout}
-        />
-      </div>
-
-      {/* Mobile search */}
-      <div className="md:hidden shrink-0 px-4 pt-3 pb-1">
-        <div className="relative">
-          <svg
-            className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => handleSearchCountry(e.target.value)}
-            placeholder="Search countries..."
-            className="w-full h-10 pl-10 pr-4 rounded-full bg-white border border-[#E5E7EB] text-sm text-gray-900 placeholder-gray-400 shadow-sm focus:outline-none focus:border-[#F97316] focus:ring-2 focus:ring-orange-100"
+      {/* ────────────────────────────────────────────────── */}
+      {/* MOBILE: first screen = 100dvh                       */}
+      {/* Nav → Search → Map (flex:1) → Throw (bottom)       */}
+      {/* ────────────────────────────────────────────────── */}
+      <div className="md:hidden flex flex-col" style={{ height: "100dvh" }}>
+        {/* Nav */}
+        <div className="shrink-0">
+          <Navigation
+            nickname={guest.nickname}
+            countryFlag={guestCountry?.flag || "🌍"}
+            onlineCount={onlineCount}
+            selectedCountryName={targetCountry?.name || null}
+            selectedCountryFlag={targetCountry?.flag || null}
+            onSearchCountry={handleSearchCountry}
+            onSearchConfirm={handleSearchConfirm}
+            onLogout={handleLogout}
           />
         </div>
-      </div>
 
-      {/* Connection status banner */}
-      {presenceError && (
-        <div className="shrink-0 px-4 py-1 bg-yellow-50 border-b border-yellow-100">
-          <p className="text-[10px] font-medium text-yellow-700 text-center">
-            {presenceError} — data will still sync
-          </p>
+        {/* Search */}
+        <div className="shrink-0 px-4 pt-3 pb-1">
+          <div className="relative">
+            <svg
+              className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/50"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => handleSearchCountry(e.target.value)}
+              placeholder="Search countries..."
+              className="w-full h-10 pl-10 pr-4 rounded-full bg-white/10 backdrop-blur-md border border-white/15 text-sm text-white/90 placeholder-white/40 shadow-[0_4px_16px_rgba(0,0,0,0.12)] focus:outline-none focus:border-white/30 focus:ring-1 focus:ring-white/10"
+            />
+          </div>
         </div>
-      )}
 
-      {/* MAIN GRID */}
-      <div className="flex-1 min-h-0 px-3 md:px-4 pt-3 pb-3 md:pb-4">
-        <div className="h-full grid grid-cols-1 md:grid-cols-12 gap-3 md:gap-4">
-          {/* LEFT — Leaderboard */}
-          <div className="hidden md:flex md:col-span-3 min-h-0">
-            <div className="w-full min-h-0">
-              <Leaderboard />
+        {/* Connection banner */}
+        {presenceError && (
+          <div className="shrink-0 px-4 py-1 bg-yellow-50 border-b border-yellow-100">
+            <p className="text-[10px] font-medium text-yellow-700 text-center">
+              {presenceError} — data will still sync
+            </p>
+          </div>
+        )}
+
+        {/* Map card — flex-1 fills remaining space */}
+        <div className="flex-1 min-h-0 mx-4 mt-1 mb-0 rounded-2xl border border-white/10 bg-white/[0.05] backdrop-blur-md shadow-[0_8px_30px_rgba(0,0,0,0.18)] flex flex-col overflow-hidden">
+          <div className="shrink-0 flex items-center justify-center border-b border-white/10 px-4 py-1.5">
+            <span className="text-[22px] font-bold text-white/90 tracking-[0.3px] leading-none">
+              🌍 World Map
+            </span>
+          </div>
+          <div ref={mapRef} className="flex-1 relative min-h-0">
+            <div className="absolute inset-0">
+              <WorldMap
+                heatData={heatData}
+                selectedCountry={selectedCountry}
+                highlightedCountry={highlightedCountry}
+                onCountryClick={handleCountryClick}
+                onBackgroundClick={() => setSelectedCountry(null)}
+              />
+            </div>
+            {showMapAlert && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none"
+              >
+                <div className="bg-black/65 backdrop-blur-sm text-red-400 rounded-xl px-6 py-3.5 text-sm font-bold shadow-lg select-none">
+                  Select a country to throw
+                </div>
+              </motion.div>
+            )}
+          </div>
+        </div>
+
+        {/* Throw panel — pinned to bottom */}
+        <div className="shrink-0 px-4 pt-3 pb-3">
+          <div className="rounded-2xl bg-white/[0.06] backdrop-blur-md border border-white/10 shadow-[0_8px_30px_rgba(0,0,0,0.18)] p-3">
+            <div className="flex flex-col gap-3">
+              <div className="flex-1 min-w-0 flex items-center gap-2">
+                <DockObjectPicker
+                  objects={THROWABLE_OBJECTS}
+                  selectedId={selectedObject}
+                  onSelect={setSelectedObject}
+                />
+              </div>
+              <div className="flex items-center gap-2 w-full">
+                <input
+                  type="text"
+                  value={reason}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/[\r\n]+/g, " ");
+                    if (value.length <= 50) {
+                      setReason(value);
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && selectedCountry && !isThrowing) {
+                      e.preventDefault();
+                      handleThrow(selectedObject, reason);
+                    }
+                  }}
+                  placeholder="Reason (optional)"
+                  maxLength={50}
+                  disabled={!selectedCountry}
+                  className="h-10 flex-1 min-w-0 px-4 rounded-full bg-white/10 backdrop-blur-md border border-white/15 text-sm text-white/90 placeholder-white/40 shadow-[0_4px_16px_rgba(0,0,0,0.12)] focus:outline-none focus:border-white/30 focus:ring-1 focus:ring-white/10 disabled:opacity-50"
+                />
+                <motion.button
+                  ref={throwBtnRef}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => handleThrow(selectedObject, reason)}
+                  className="h-10 px-5 rounded-full bg-gradient-to-r from-orange-500 to-pink-500 text-white text-sm font-bold shadow-md hover:shadow-lg transition-shadow flex items-center gap-1.5 shrink-0"
+                >
+                  {isThrowing ? (
+                    <>
+                      <motion.span
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 0.8, repeat: Infinity, ease: "linear" }}
+                        className="inline-block w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full"
+                      />
+                      <span>Throwing…</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Throw!</span>
+                      <span className="text-base leading-none">🚀</span>
+                    </>
+                  )}
+                </motion.button>
+              </div>
             </div>
           </div>
+        </div>
+      </div>
 
-          {/* CENTER — Map + Bottom Throw Bar */}
-          <div className="col-span-1 md:col-span-6 min-h-0 flex flex-col gap-3 md:gap-4">
-            <div className="flex-1 min-h-0 rounded-2xl border border-[#E5E7EB] bg-white/70 backdrop-blur-sm shadow-[0_4px_20px_rgba(0,0,0,0.04)] flex flex-col overflow-hidden">
-              {/* Map title header strip */}
-              <div className="shrink-0 flex items-center justify-center border-b border-[#E5E7EB]/60 px-4 py-2.5">
-                <span className="text-[22px] font-bold text-[#2D3748] tracking-[0.3px] leading-none">
-                  🌍 World Map
-                </span>
-              </div>
-              {/* Map */}
-              <div ref={mapRef} className="flex-1 relative min-h-0">
-                <div className="absolute inset-0">
-                  <WorldMap
-                    heatData={heatData}
-                    selectedCountry={selectedCountry}
-                    highlightedCountry={highlightedCountry}
-                    onCountryClick={handleCountryClick}
-                    onBackgroundClick={() => setSelectedCountry(null)}
-                  />
-                </div>
-                {showMapAlert && (
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none"
-                  >
-                    <div className="bg-black/65 backdrop-blur-sm text-red-400 rounded-xl px-6 py-3.5 text-sm font-bold shadow-lg select-none">
-                      Select a country to throw
-                    </div>
-                  </motion.div>
-                )}
+      {/* ────────────────────────────────────────────────── */}
+      {/* DESKTOP: existing grid layout                       */}
+      {/* ────────────────────────────────────────────────── */}
+      <div className="hidden md:flex md:flex-col flex-1 min-h-0">
+        <div className="shrink-0">
+          <Navigation
+            nickname={guest.nickname}
+            countryFlag={guestCountry?.flag || "🌍"}
+            onlineCount={onlineCount}
+            selectedCountryName={targetCountry?.name || null}
+            selectedCountryFlag={targetCountry?.flag || null}
+            onSearchCountry={handleSearchCountry}
+            onSearchConfirm={handleSearchConfirm}
+            onLogout={handleLogout}
+          />
+        </div>
+
+        {/* Connection banner */}
+        {presenceError && (
+          <div className="shrink-0 px-4 py-1 bg-yellow-50 border-b border-yellow-100">
+            <p className="text-[10px] font-medium text-yellow-700 text-center">
+              {presenceError} — data will still sync
+            </p>
+          </div>
+        )}
+
+        <div className="flex-1 min-h-0 px-3 md:px-4 pt-3 pb-3 md:pb-4">
+          <div className="h-full grid grid-cols-12 gap-3 md:gap-4">
+            {/* LEFT — Leaderboard */}
+            <div className="col-span-3 min-h-0">
+              <div className="w-full min-h-0">
+                <Leaderboard />
               </div>
             </div>
 
-            {/* BOTTOM BAR — Throw panel */}
-            <div className="shrink-0">
-              <div className="rounded-2xl bg-white/85 backdrop-blur-sm border border-[#E5E7EB] shadow-[0_4px_20px_rgba(0,0,0,0.04)] p-3 md:p-4">
-                <div className="flex flex-col md:flex-row md:items-center gap-3">
-                  <div className="flex-1 min-w-0 flex items-center gap-2">
-                    <DockObjectPicker
-                      objects={THROWABLE_OBJECTS}
-                      selectedId={selectedObject}
-                      onSelect={setSelectedObject}
+            {/* CENTER — Map + Throw */}
+            <div className="col-span-6 min-h-0 flex flex-col gap-3 md:gap-4">
+              <div className="flex-1 min-h-0 rounded-2xl border border-[#E5E7EB] bg-white/70 backdrop-blur-sm shadow-[0_4px_20px_rgba(0,0,0,0.04)] flex flex-col overflow-hidden">
+                <div className="shrink-0 flex items-center justify-center border-b border-[#E5E7EB]/60 px-4 py-2.5">
+                  <span className="text-[22px] font-bold text-[#2D3748] tracking-[0.3px] leading-none">
+                    🌍 World Map
+                  </span>
+                </div>
+                <div ref={mapRef} className="flex-1 relative min-h-0">
+                  <div className="absolute inset-0">
+                    <WorldMap
+                      heatData={heatData}
+                      selectedCountry={selectedCountry}
+                      highlightedCountry={highlightedCountry}
+                      onCountryClick={handleCountryClick}
+                      onBackgroundClick={() => setSelectedCountry(null)}
                     />
                   </div>
+                  {showMapAlert && (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none"
+                    >
+                      <div className="bg-black/65 backdrop-blur-sm text-red-400 rounded-xl px-6 py-3.5 text-sm font-bold shadow-lg select-none">
+                        Select a country to throw
+                      </div>
+                    </motion.div>
+                  )}
+                </div>
+              </div>
 
-                  <div className="hidden md:block w-px h-10 bg-gray-200" />
-
-                  <div className="flex items-center gap-2 shrink-0">
-                    <div className="flex flex-col gap-0.5 shrink-0">
+              <div className="shrink-0">
+                <div className="rounded-2xl bg-white/85 backdrop-blur-sm border border-[#E5E7EB] shadow-[0_4px_20px_rgba(0,0,0,0.04)] p-3 md:p-4">
+                  <div className="flex flex-col md:flex-row md:items-center gap-3">
+                    <div className="flex-1 min-w-0 flex items-center gap-2">
+                      <DockObjectPicker
+                        objects={THROWABLE_OBJECTS}
+                        selectedId={selectedObject}
+                        onSelect={setSelectedObject}
+                      />
+                    </div>
+                    <div className="hidden md:block w-px h-10 bg-gray-200" />
+                    <div className="flex items-center gap-2">
                       <input
                         type="text"
                         value={reason}
@@ -705,50 +824,56 @@ export default function WorldPage() {
                         placeholder="Reason (optional)"
                         maxLength={50}
                         disabled={!selectedCountry}
-                        className="h-10 w-32 md:w-44 px-3 rounded-full bg-white border border-[#E5E7EB] text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#F97316] focus:ring-2 focus:ring-orange-100 disabled:opacity-50"
+                        className="h-10 w-44 min-w-0 px-4 rounded-full bg-white border border-[#E5E7EB] text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#F97316] focus:ring-2 focus:ring-orange-100 disabled:opacity-50"
                       />
+                      <motion.button
+                        ref={throwBtnRef}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => handleThrow(selectedObject, reason)}
+                        className="h-10 px-5 rounded-full bg-gradient-to-r from-orange-500 to-pink-500 text-white text-sm font-bold shadow-md hover:shadow-lg transition-shadow flex items-center gap-1.5"
+                      >
+                        {isThrowing ? (
+                          <>
+                            <motion.span
+                              animate={{ rotate: 360 }}
+                              transition={{ duration: 0.8, repeat: Infinity, ease: "linear" }}
+                              className="inline-block w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full"
+                            />
+                            <span>Throwing…</span>
+                          </>
+                        ) : (
+                          <>
+                            <span>Throw!</span>
+                            <span className="text-base leading-none">🚀</span>
+                          </>
+                        )}
+                      </motion.button>
                     </div>
-                    <motion.button
-                      ref={throwBtnRef}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => handleThrow(selectedObject, reason)}
-                      className="h-10 px-4 md:px-5 rounded-full bg-gradient-to-r from-orange-500 to-pink-500 text-white text-sm font-bold shadow-md hover:shadow-lg transition-shadow flex items-center gap-1.5"
-                    >
-                      {isThrowing ? (
-                        <>
-                          <motion.span
-                            animate={{ rotate: 360 }}
-                            transition={{ duration: 0.8, repeat: Infinity, ease: "linear" }}
-                            className="inline-block w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full"
-                          />
-                          <span>Throwing…</span>
-                        </>
-                      ) : (
-                        <>
-                          <span>Throw!</span>
-                          <span className="text-base leading-none">🚀</span>
-                        </>
-                      )}
-                    </motion.button>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* RIGHT — Live Feed */}
-          <div className="hidden md:flex md:col-span-3 min-h-0">
-            <div className="w-full min-h-0">
-              <LiveFeed />
+            {/* RIGHT — Live Feed */}
+            <div className="col-span-3 min-h-0">
+              <div className="w-full min-h-0">
+                <LiveFeed />
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Mobile leaderboard/feed */}
-      <div className="md:hidden shrink-0 px-3 pb-3 grid grid-cols-2 gap-3">
-        <Leaderboard />
-        <LiveFeed />
+      {/* ────────────────────────────────────────────────── */}
+      {/* MOBILE: below-fold Leaderboard + Live Feed          */}
+      {/* ────────────────────────────────────────────────── */}
+      <div className="md:hidden flex flex-col gap-3 px-4 pt-3 pb-3" style={{ paddingBottom: "env(safe-area-inset-bottom, 12px)" }}>
+        <div className="max-md:m-glass">
+          <Leaderboard />
+        </div>
+        <div className="max-md:m-glass">
+          <LiveFeed />
+        </div>
       </div>
 
       {/* Country Popup */}

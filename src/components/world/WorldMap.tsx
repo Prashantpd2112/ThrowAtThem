@@ -52,7 +52,7 @@ export function WorldMap({ onCountryClick, onBackgroundClick, selectedCountry, h
       <svg
         onClick={handleBackgroundClick}
         viewBox={viewBox}
-        className="w-full h-auto max-w-full max-h-full"
+        className="w-full h-full max-w-full max-h-full"
         preserveAspectRatio="xMidYMid meet"
         style={{ filter: "drop-shadow(0 2px 8px rgba(0,0,0,0.06))" }}
       >

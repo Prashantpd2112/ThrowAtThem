@@ -69,35 +69,24 @@ body {
   color-scheme: dark;
 }
 
-/* ── Ambient Background (safe — no absolute positioned elements) ── */
-.ambient-bg {
-  background-color: #0B1120;
-  background-image:
-    radial-gradient(ellipse at 15% 20%, rgba(168, 85, 247, 0.12) 0%, transparent 60%),
-    radial-gradient(ellipse at 85% 75%, rgba(249, 115, 22, 0.08) 0%, transparent 60%),
-    radial-gradient(ellipse at 50% 50%, rgba(59, 130, 246, 0.05) 0%, transparent 50%),
-    linear-gradient(135deg, #0B1120 0%, #0F1B3D 30%, #1A0F2E 60%, #0F172A 100%);
+/* ── Space Background Animations ── */
+@keyframes star-twinkle {
+  0% { opacity: 0.3; }
+  100% { opacity: 0.9; }
 }
 
-/* Subtle grid overlay */
-.grid-bg {
-  background-image:
-    linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
-  background-size: 40px 40px;
-}
-
-/* Combined ambient + grid */
-.ambient-bg.grid-bg {
-  background-image:
-    radial-gradient(ellipse at 15% 20%, rgba(168, 85, 247, 0.12) 0%, transparent 60%),
-    radial-gradient(ellipse at 85% 75%, rgba(249, 115, 22, 0.08) 0%, transparent 60%),
-    radial-gradient(ellipse at 50% 50%, rgba(59, 130, 246, 0.05) 0%, transparent 50%),
-    linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px),
-    linear-gradient(135deg, #0B1120 0%, #0F1B3D 30%, #1A0F2E 60%, #0F172A 100%);
-  background-size: 40px 40px, 40px 40px, auto, 40px 40px, 40px 40px, auto;
-  background-blend-mode: normal, normal, normal, normal, normal, normal;
+@keyframes shooting-star {
+  0% {
+    transform: translate(0, 0);
+    opacity: 1;
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(350px, 250px);
+    opacity: 0;
+  }
 }
 
 /* ── Glass Card - HIGH OPACITY for readability, with blur for glass effect ── */
@@ -296,6 +285,43 @@ body {
   background: rgba(255, 255, 255, 0.12);
 }
 
+
+@media (max-width: 767px) {
+  .m-glass {
+    background: rgba(255, 255, 255, 0.06) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.18) !important;
+  }
+
+  .m-glass-no-bg {
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  }
+
+  .m-glass-subtle {
+    background: rgba(255, 255, 255, 0.04) !important;
+    backdrop-filter: blur(10px) !important;
+    -webkit-backdrop-filter: blur(10px) !important;
+  }
+
+  .m-glass-input {
+    background: rgba(255, 255, 255, 0.06) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.10) !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12) !important;
+  }
+
+  .m-glass-input:focus {
+    border-color: rgba(255, 255, 255, 0.20) !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.18), 0 0 0 1px rgba(255, 255, 255, 0.10) !important;
+    outline: none !important;
+  }
+}
+
 /* ── Selection ── */
 ::selection {
   background: rgba(249, 115, 22, 0.2);
@@ -309,6 +335,28 @@ body {
 }
 .scrollbar-none::-webkit-scrollbar {
   display: none;
+}
+
+/* ── Mobile glass text helpers ── */
+@media (max-width: 767px) {
+  .m-text-primary {
+    color: rgba(255, 255, 255, 0.92) !important;
+  }
+  .m-text-secondary {
+    color: rgba(255, 255, 255, 0.65) !important;
+  }
+  .m-text-tertiary {
+    color: rgba(255, 255, 255, 0.40) !important;
+  }
+  .m-text-accent {
+    color: #F97316 !important;
+  }
+  .m-border {
+    border-color: rgba(255, 255, 255, 0.08) !important;
+  }
+  .m-bg-subtle {
+    background: rgba(255, 255, 255, 0.04) !important;
+  }
 }
 
 /* ── Feed Entry ── */

@@ -125,15 +125,15 @@ export function LiveFeed() {
   return (
     <div className="bg-white rounded-2xl border border-[#E5E7EB] shadow-[0_4px_20px_rgba(0,0,0,0.04)] flex flex-col h-full overflow-hidden">
       {/* Header */}
-      <div className="shrink-0 flex items-center justify-between px-4 pt-3 pb-2.5 border-b border-gray-100">
-        <h3 className="text-xs font-bold text-gray-800 flex items-center gap-2">
+      <div className="shrink-0 flex items-center justify-between px-4 pt-3 pb-2.5 border-b border-gray-100 max-md:border-b-white/10">
+        <h3 className="text-xs font-bold text-gray-800 flex items-center gap-2 max-md:text-white/90">
           <span className="relative flex w-2 h-2">
             <span className="absolute inline-flex w-full h-full rounded-full bg-green-400 opacity-75 animate-ping" />
             <span className="relative inline-flex w-2 h-2 rounded-full bg-green-500" />
           </span>
           Live Feed
         </h3>
-        <span className="text-[10px] font-semibold text-gray-500 bg-gray-100 px-2.5 py-0.5 rounded-full">
+        <span className="text-[10px] font-semibold text-gray-500 bg-gray-100 px-2.5 py-0.5 rounded-full max-md:bg-white/10 max-md:text-white/60">
           {formatCompactNumber(totalThrows ?? 0)} throws
         </span>
       </div>
@@ -198,21 +198,21 @@ export function LiveFeed() {
 
                 {/* Content */}
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs leading-snug text-gray-800">
+                  <p className="text-xs leading-snug text-gray-800 max-md:text-white/85">
                     <span className="font-bold text-orange-500">{entry.nickname}</span>
                     <span className="mx-1.5 text-base leading-none">{entry.object}</span>
                     <span className="text-gray-300">→</span>
                     <span className="ml-1 font-semibold">{entry.country_name}</span>
                   </p>
                   {entry.reason && (
-                    <p className="text-[10px] text-gray-500 italic mt-1 truncate">
+                    <p className="text-[10px] text-gray-500 italic mt-1 truncate max-md:text-white/50">
                       &ldquo;{entry.reason}&rdquo;
                     </p>
                   )}
                 </div>
 
                 {/* Time */}
-                <span className={`text-[9px] text-gray-400 font-medium shrink-0 ${entry.reason ? "mt-0.5" : ""}`}>
+                <span className={`text-[9px] text-gray-400 font-medium shrink-0 ${entry.reason ? "mt-0.5" : ""} max-md:text-white/40`}>
                   {formatRelativeTime(entry.created_at)}
                 </span>
               </motion.div>
