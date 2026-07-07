@@ -636,9 +636,9 @@ export default function WorldPage() {
           </div>
         )}
 
-        {/* Map card — flex-1 fills remaining space */}
-        <div className="flex-1 min-h-0 mx-4 mt-1 mb-0 rounded-2xl border border-white/10 bg-white/[0.05] backdrop-blur-md shadow-[0_8px_30px_rgba(0,0,0,0.18)] flex flex-col overflow-hidden">
-          <div className="shrink-0 flex items-center justify-center border-b border-white/10 px-4 py-1.5">
+        {/* Globe — floats directly on the space background, no card */}
+        <div className="flex-1 min-h-0 mx-4 mt-1 mb-0 flex flex-col overflow-hidden">
+          <div className="shrink-0 flex items-center justify-center px-4 py-1.5">
             <span className="text-[22px] font-bold text-white/90 tracking-[0.3px] leading-none">
               🌍 World Map
             </span>
@@ -764,9 +764,10 @@ export default function WorldPage() {
 
             {/* CENTER — Map + Throw */}
             <div className="col-span-6 min-h-0 flex flex-col gap-3 md:gap-4">
-              <div className="flex-1 min-h-0 rounded-2xl border border-[#E5E7EB] bg-white/70 backdrop-blur-sm shadow-[0_4px_20px_rgba(0,0,0,0.04)] flex flex-col overflow-hidden">
-                <div className="shrink-0 flex items-center justify-center border-b border-[#E5E7EB]/60 px-4 py-2.5">
-                  <span className="text-[22px] font-bold text-[#2D3748] tracking-[0.3px] leading-none">
+              {/* Globe — floats directly on space, no card */}
+              <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+                <div className="shrink-0 flex items-center justify-center px-4 py-2.5">
+                  <span className="text-[22px] font-bold text-white/90 tracking-[0.3px] leading-none drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)]">
                     🌍 World Map
                   </span>
                 </div>
