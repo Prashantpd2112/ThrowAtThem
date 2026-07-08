@@ -13,7 +13,8 @@ export function useThrows() {
       throwerCountry: string,
       targetCountry: string,
       objectId: string,
-      reason: string
+      reason: string,
+      targetProfileId?: string | null
     ) => {
       setError(null);
       if (!isSupabaseConfigured) {
@@ -28,6 +29,7 @@ export function useThrows() {
           target_country: targetCountry,
           object: objectId,
           reason,
+          target_profile_id: targetProfileId,
         });
         return true;
       } catch (err) {

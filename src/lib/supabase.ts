@@ -28,16 +28,34 @@ function nextChannelName(prefix: string): string {
 }
 
 // ── Database Types ──
-export type DbThrow = {
+export type SupabaseThrow = {
   id: string;
   guest_id: string;
   nickname: string;
   thrower_country: string;
   target_country: string;
+  target_profile_id: string | null;
   object: string;
   reason: string;
   created_at: string;
 };
+
+export type DbIndividualProfile = {
+  id: string;
+  guest_id: string;
+  nickname: string;
+  profile_image: string;
+  profession: string;
+  country: string;
+  city: string;
+  bio: string;
+  social_link: string;
+  likes: number;
+  views: number;
+  created_at: string;
+};
+
+
 
 export type DbGuest = {
   id: string;
@@ -161,23 +179,28 @@ export const insertThrow = async (throwData: {
   target_country: string;
   object: string;
   reason: string;
+  target_profile_id?: string | null;
 }): Promise<boolean> => {
   const client = getClient();
-  const { error } = await client.from("throws").insert({
+  const record: Record<string, any> = {
     guest_id: throwData.guest_id,
     nickname: throwData.nickname,
     thrower_country: throwData.thrower_country,
     target_country: throwData.target_country,
     object: throwData.object,
     reason: throwData.reason || "",
-  });
+  };
+  if (throwData.target_profile_id) {
+    record.target_profile_id = throwData.target_profile_id;
+  }
+  const { error } = await client.from("throws").insert(record);
   if (error) {
     throw error;
   }
   return true;
 };
 
-export const fetchRecentThrows = async (limit = 50): Promise<DbThrow[]> => {
+export const fetchRecentThrows = async (limit = 50): Promise<SupabaseThrow[]> => {
   const client = getClient();
   const { data, error } = await client
     .from("throws")
@@ -185,7 +208,7 @@ export const fetchRecentThrows = async (limit = 50): Promise<DbThrow[]> => {
     .order("created_at", { ascending: false })
     .limit(limit);
   if (error) throw error;
-  return (data || []) as DbThrow[];
+  return (data || []) as SupabaseThrow[];
 };
 
 // Returns the total number of throws stored in the database (all-time).
@@ -206,8 +229,26 @@ export const fetchHeatData = async (): Promise<Record<string, number>> => {
     .select("target_country");
   if (error) throw error;
   const counts: Record<string, number> = {};
-  (data as DbThrow[]).forEach((t) => {
+  (data as SupabaseThrow[]).forEach((t) => {
     counts[t.target_country] = (counts[t.target_country] || 0) + 1;
+  });
+  return counts;
+};
+
+// ── Profile Throw Rankings ──
+
+export const fetchProfileThrowCounts = async (): Promise<Record<string, number>> => {
+  const client = getClient();
+  const { data, error } = await client
+    .from("throws")
+    .select("target_profile_id")
+    .not("target_profile_id", "is", null);
+  if (error) throw error;
+  const counts: Record<string, number> = {};
+  (data as { target_profile_id: string }[]).forEach((t) => {
+    if (t.target_profile_id) {
+      counts[t.target_profile_id] = (counts[t.target_profile_id] || 0) + 1;
+    }
   });
   return counts;
 };
@@ -266,7 +307,7 @@ export const getCountryStats = async (countryCode: string) => {
 
   if (error) throw error;
 
-  const data = (throws || []) as DbThrow[];
+  const data = (throws || []) as SupabaseThrow[];
   const totalThrows = data.length;
 
   const objectCounts: Record<string, number> = {};
@@ -339,11 +380,79 @@ export const getLeaderboard = async (timePeriod: "daily" | "weekly" | "all_time"
   return { countryLeaderboard, objectLeaderboard };
 };
 
+// ── Individual Profile Operations ──
+
+export const insertProfile = async (profile: {
+  guest_id: string;
+  nickname: string;
+  profile_image: string;
+  profession: string;
+  country: string;
+  city: string;
+  bio: string;
+  social_link: string;
+}): Promise<string> => {
+  const client = getClient();
+  const { data, error } = await client
+    .from("individual_profiles")
+    .insert(profile)
+    .select("id")
+    .single();
+  if (error) throw error;
+  return (data as { id: string }).id;
+};
+
+export const fetchProfiles = async (): Promise<DbIndividualProfile[]> => {
+  const client = getClient();
+  const { data, error } = await client
+    .from("individual_profiles")
+    .select("*")
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data || []) as DbIndividualProfile[];
+};
+
+export function createProfilesSubscription(
+  callback: (profile: DbIndividualProfile, event: "INSERT" | "UPDATE" | "DELETE") => void,
+  onError?: (error: Error) => void
+): () => void {
+  const client = getClient();
+  const channelName = nextChannelName("profiles");
+  const channel = client
+    .channel(channelName)
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "individual_profiles",
+      },
+      (payload: RealtimePostgresChangesPayload<DbIndividualProfile>) => {
+        if (payload.eventType === "INSERT" && payload.new) {
+          callback(payload.new as DbIndividualProfile, "INSERT");
+        } else if (payload.eventType === "UPDATE" && payload.new) {
+          callback(payload.new as DbIndividualProfile, "UPDATE");
+        } else if (payload.eventType === "DELETE" && payload.old) {
+          callback(payload.old as DbIndividualProfile, "DELETE");
+        }
+      }
+    )
+    .subscribe((status) => {
+      if (status === "CHANNEL_ERROR" && onError) {
+        onError(new Error("Profiles subscription failed"));
+      }
+    });
+
+  return () => {
+    client.removeChannel(channel);
+  };
+}
+
 // ── Realtime Subscriptions ──
 // Each call creates a UNIQUE channel name so multiple subscriptions never collide.
 
 export function createThrowsSubscription(
-  callback: (throwData: DbThrow) => void,
+  callback: (throwData: SupabaseThrow) => void,
   onError?: (error: Error) => void
 ): () => void {
   const client = getClient();
@@ -357,8 +466,8 @@ export function createThrowsSubscription(
         schema: "public",
         table: "throws",
       },
-      (payload: RealtimePostgresChangesPayload<DbThrow>) => {
-        const newThrow = payload.new as DbThrow;
+      (payload: RealtimePostgresChangesPayload<SupabaseThrow>) => {
+        const newThrow = payload.new as SupabaseThrow;
         if (newThrow && newThrow.id) {
           callback(newThrow);
         }

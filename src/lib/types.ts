@@ -95,6 +95,36 @@ export interface CountryObjectStats {
   total_throws: number;
 }
 
+export interface IndividualLeaderboardEntry {
+  profile_id: string;
+  nickname: string;
+  profile_image: string;
+  count: number;
+  country: string;
+}
+
+export interface IndividualObjectStats {
+  profile_id: string;
+  objects: ObjectDistribution[];
+  most_used_object: ObjectDistribution | null;
+  total_throws: number;
+}
+
+export interface IndividualProfile {
+  id: string;
+  guest_id: string;
+  nickname: string;
+  profile_image: string;
+  profession: string;
+  country: string;
+  city: string;
+  bio: string;
+  social_link: string;
+  likes: number;
+  views: number;
+  created_at: string;
+}
+
 export type TimePeriod = "daily" | "weekly" | "all_time";
 
 export type ThemeMode = "light" | "dark";

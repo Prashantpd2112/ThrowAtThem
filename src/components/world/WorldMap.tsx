@@ -56,7 +56,7 @@ function HoverLabel({ code }: { code: string | null }) {
 
   return (
     <div
-      className="pointer-events-none absolute left-1/2 -translate-x-1/2 z-30 px-2.5 py-1 rounded-md text-[11px] font-semibold text-white bg-slate-900/85 border border-white/10 shadow-lg backdrop-blur-sm"
+      className="pointer-events-none absolute left-1/2 -translate-x-1/2 z-30 px-3 py-1.5 rounded-md text-sm font-semibold text-black bg-white/90 border border-slate-200 shadow-lg backdrop-blur-sm"
       style={{ top: "12%" }}
     >
       {country.flag} {country.name}

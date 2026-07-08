@@ -61,6 +61,47 @@ BEGIN
 END $$;
 
 -- ══════════════════════════════════════════════════════════════
+-- 1b. INDIVIDUAL PROFILES TABLE
+-- ══════════════════════════════════════════════════════════════
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'individual_profiles') THEN
+    CREATE TABLE public.individual_profiles (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      guest_id UUID NOT NULL REFERENCES public.guests(id) ON DELETE CASCADE,
+      nickname TEXT NOT NULL,
+      profile_image TEXT DEFAULT '',
+      profession TEXT NOT NULL DEFAULT '',
+      country TEXT NOT NULL DEFAULT '',
+      city TEXT DEFAULT '',
+      bio TEXT DEFAULT '',
+      social_link TEXT DEFAULT '',
+      likes INTEGER DEFAULT 0,
+      views INTEGER DEFAULT 0,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    RAISE NOTICE 'Created table: individual_profiles';
+  ELSE
+    RAISE NOTICE 'Table already exists: individual_profiles';
+  END IF;
+END $$;
+
+-- Add target_profile_id to throws table (nullable, for throwing at a person)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'throws' AND column_name = 'target_profile_id'
+  ) THEN
+    ALTER TABLE public.throws ADD COLUMN target_profile_id UUID REFERENCES public.individual_profiles(id) ON DELETE SET NULL;
+    RAISE NOTICE 'Added column target_profile_id to throws';
+  ELSE
+    RAISE NOTICE 'Column target_profile_id already exists on throws';
+  END IF;
+END $$;
+
+-- ══════════════════════════════════════════════════════════════
 -- 2. INDEXES
 -- ══════════════════════════════════════════════════════════════
 
@@ -168,6 +209,16 @@ BEGIN
   END IF;
 END $$;
 
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'individual_profiles' AND rowsecurity = true) THEN
+    ALTER TABLE public.individual_profiles ENABLE ROW LEVEL SECURITY;
+    RAISE NOTICE 'Enabled RLS on: individual_profiles';
+  ELSE
+    RAISE NOTICE 'RLS already enabled on: individual_profiles';
+  END IF;
+END $$;
+
 -- ══════════════════════════════════════════════════════════════
 -- 4. POLICIES
 -- ══════════════════════════════════════════════════════════════
@@ -223,6 +274,34 @@ BEGIN
     RAISE NOTICE 'Policy already exists: Allow public insert throws';
   END IF;
 END $$;
+
+-- Individual profiles policies
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'individual_profiles' AND policyname = 'Allow public read individual_profiles') THEN
+    CREATE POLICY "Allow public read individual_profiles" ON public.individual_profiles FOR SELECT USING (true);
+    RAISE NOTICE 'Created policy: Allow public read individual_profiles';
+  ELSE
+    RAISE NOTICE 'Policy already exists: Allow public read individual_profiles';
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'individual_profiles' AND policyname = 'Allow public insert individual_profiles') THEN
+    CREATE POLICY "Allow public insert individual_profiles" ON public.individual_profiles FOR INSERT WITH CHECK (true);
+    RAISE NOTICE 'Created policy: Allow public insert individual_profiles';
+  ELSE
+    RAISE NOTICE 'Policy already exists: Allow public insert individual_profiles';
+  END IF;
+END $$;
+
+-- NOTE: No UPDATE or DELETE policies for individual_profiles yet.
+-- Since the app uses anonymous guest auth with no per-user identity,
+-- allowing updates would let anyone modify anyone's profile.
+-- When user identity/authentication is added, create per-owner policies:
+--   FOR UPDATE USING (guest_id = auth.uid()) WITH CHECK (guest_id = auth.uid())
+--   FOR DELETE USING (guest_id = auth.uid())
 
 -- User presence policies
 DO $$
@@ -286,6 +365,16 @@ BEGIN
     RAISE NOTICE 'Added user_presence to supabase_realtime publication';
   ELSE
     RAISE NOTICE 'user_presence is already in supabase_realtime publication';
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'individual_profiles') THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.individual_profiles;
+    RAISE NOTICE 'Added individual_profiles to supabase_realtime publication';
+  ELSE
+    RAISE NOTICE 'individual_profiles is already in supabase_realtime publication';
   END IF;
 END $$;
 

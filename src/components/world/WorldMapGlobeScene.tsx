@@ -334,6 +334,10 @@ function Globe({
       .polygonStrokeColor((d: object) => {
         const code = (d as { properties?: { iso_a2?: string } }).properties?.iso_a2;
         const normalized = (code || "").toUpperCase();
+        // Hide strokes for Pakistan and China — their de facto borders
+        // fall inside India's claimed 1950 boundary (POK/Aksai Chin)
+        // and would otherwise show as unwanted lines inside India.
+        if (normalized === "PK" || normalized === "CN") return "transparent";
         if (normalized === selectedCountry) return "#FFFFFF";
         if (normalized === highlightedCountry) return "#FCA5A5";
         if (normalized === hoveredCode) return "#FFFFFF";
@@ -343,12 +347,11 @@ function Globe({
       .labelLat((d: object) => (d as { lat: number }).lat)
       .labelLng((d: object) => (d as { lng: number }).lng)
       .labelText((d: object) => (d as { text: string }).text)
-      .labelColor(() => "#FFFFFF")
-      .labelSize(() => 0.45)
+      .labelColor(() => "#000000")
+      .labelSize(() => 1.2)
       .labelAltitude(() => 0.02)
-      .labelResolution(2)
-      .labelIncludeDot(false)
-      .labelsData(labelsVisible ? labelsData : []);
+      .labelResolution(3)
+      .labelIncludeDot(false);
 
     globe.polygonCapMaterial(
       () =>
@@ -435,6 +438,9 @@ function Globe({
     globe.polygonStrokeColor((d: object) => {
       const code = (d as { properties?: { iso_a2?: string } }).properties?.iso_a2;
       const normalized = (code || "").toUpperCase();
+      // Hide strokes for Pakistan and China — their de facto borders
+      // fall inside India's claimed 1950 boundary (POK/Aksai Chin)
+      if (normalized === "PK" || normalized === "CN") return "transparent";
       if (normalized === selectedCountry) return "#FFFFFF";
       if (normalized === highlightedCountry) return "#FCA5A5";
       if (normalized === hoveredCode) return "#FFFFFF";
@@ -539,7 +545,7 @@ function GlobeScene({
         dampingFactor={0.1}
         rotateSpeed={0.6}
         zoomSpeed={1.0}
-        minDistance={GLOBE_RADIUS * 1.01}
+        minDistance={GLOBE_RADIUS * 2.2}
         maxDistance={GLOBE_RADIUS * 20}
         onStart={() => onBackgroundClick?.()}
       />

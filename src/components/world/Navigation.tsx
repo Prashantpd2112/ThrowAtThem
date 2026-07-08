@@ -1,9 +1,8 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
 import { motion } from "framer-motion";
-import { COUNTRIES, getCountryByCode } from "@/data/countries";
 import { Globe3D } from "@/components/landing/Globe3D";
+import { SearchBar } from "@/components/world/SearchBar";
 
 interface NavigationProps {
   nickname: string;
@@ -12,140 +11,106 @@ interface NavigationProps {
   selectedCountryName?: string | null;
   selectedCountryFlag?: string | null;
   onSearchCountry: (query: string) => void;
+  onSearchIndividual?: (query: string) => void;
   onSearchConfirm?: (query: string) => void;
   onLogout: () => void;
+  onOpenLeaderboard?: () => void;
+  showBackButton?: boolean;
+  onBackFromLeaderboard?: () => void;
+  viewMode?: "individual" | "country";
 }
 
-export function Navigation({ nickname, countryFlag, onlineCount = 0, selectedCountryName, selectedCountryFlag, onSearchCountry, onSearchConfirm, onLogout }: NavigationProps) {
-  const [inputValue, setInputValue] = useState("");
-
-  // Compute the best suggestion from the countries list
-  const suggestion = useMemo(() => {
-    const q = inputValue.trim().toLowerCase();
-    if (!q) return null;
-
-    // Try exact code match first
-    const codeMatch = getCountryByCode(inputValue.toUpperCase());
-    if (codeMatch) return codeMatch.name;
-
-    // Try prefix match on country name
-    const match = COUNTRIES.find((c) =>
-      c.name.toLowerCase().startsWith(q)
-    );
-    if (match && match.name.toLowerCase() !== q) return match.name;
-
-    return null;
-  }, [inputValue]);
-
-  // The gray suggestion text that appears after what the user typed
-  const suggestionSuffix = useMemo(() => {
-    if (!suggestion || !inputValue.trim()) return "";
-    return suggestion.slice(inputValue.trim().length);
-  }, [suggestion, inputValue]);
-
-  const handleChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const val = e.target.value;
-      setInputValue(val);
-      onSearchCountry(val);
-    },
-    [onSearchCountry]
-  );
-
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLInputElement>) => {
-      if ((e.key === "Tab" || e.key === "ArrowRight") && suggestion) {
-        e.preventDefault();
-        setInputValue(suggestion);
-        onSearchCountry(suggestion);
-      } else if (e.key === "Enter" && inputValue.trim()) {
-        e.preventDefault();
-        onSearchConfirm?.(inputValue.trim());
-        setInputValue("");
-      }
-    },
-    [suggestion, inputValue, onSearchCountry, onSearchConfirm]
-  );
-
-  const handleClear = useCallback(() => {
-    setInputValue("");
-    onSearchCountry("");
-  }, [onSearchCountry]);
-
+export function Navigation({
+  nickname,
+  countryFlag,
+  onlineCount = 0,
+  selectedCountryName,
+  selectedCountryFlag,
+  onSearchCountry,
+  onSearchIndividual,
+  onSearchConfirm,
+  onLogout,
+  onOpenLeaderboard,
+  showBackButton,
+  onBackFromLeaderboard,
+  viewMode = "country",
+}: NavigationProps) {
   return (
     <nav
       className="sticky top-0 z-30 bg-white border-b border-[#E5E7EB] shadow-[0_1px_2px_rgba(0,0,0,0.04),0_4px_12px_rgba(0,0,0,0.03)] max-md:h-16 md:h-[70px] max-md:bg-transparent max-md:backdrop-blur-md max-md:border-b-white/10 max-md:shadow-[0_1px_2px_rgba(0,0,0,0.15),0_4px_12px_rgba(0,0,0,0.08)]"
     >
       <div className="h-full max-w-[1600px] mx-auto max-md:px-4 md:px-6 flex items-center max-md:gap-0 md:gap-5">
-        {/* Logo - left */}
-        <motion.a
-          href="/"
-          className="flex items-center gap-2.5 shrink-0 group"
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-        >
-          <div className="w-9 h-9 shrink-0 overflow-hidden rounded-full">
-            <Globe3D />
-          </div>
-          <div className="flex flex-col leading-tight max-md:hidden">
-            <span
-              className="text-[15px] font-bold bg-gradient-to-r from-orange-500 to-pink-500 bg-clip-text text-transparent"
-              style={{ fontFamily: "'Fredoka', cursive" }}
-            >
-              WorldThrow
-            </span>
-            <span className="text-[10px] font-medium text-gray-500 -mt-0.5">
-              Throw fun at the world
-            </span>
-          </div>
-        </motion.a>
+        {/* Back button when in leaderboard fullscreen */}
+        {showBackButton ? (
+          <motion.button
+            onClick={onBackFromLeaderboard}
+            className="flex items-center justify-center w-9 h-9 rounded-full bg-white/10 backdrop-blur-md border border-white/15 shadow-sm mr-3"
+            whileTap={{ scale: 0.96 }}
+            aria-label="Back"
+          >
+            <svg className="w-3.5 h-3.5 text-white/80" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+          </motion.button>
+        ) : (
+          /* Logo - left */
+          <motion.a
+            href="/"
+            className="flex items-center gap-2.5 shrink-0 group"
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+          >
+            <div className="w-9 h-9 shrink-0 overflow-hidden rounded-full">
+              <Globe3D />
+            </div>
+            <div className="flex flex-col leading-tight max-md:hidden">
+              <span
+                className="text-[15px] font-bold bg-gradient-to-r from-orange-500 to-pink-500 bg-clip-text text-transparent"
+                style={{ fontFamily: "'Fredoka', cursive" }}
+              >
+                WorldThrow
+              </span>
+              <span className="text-[10px] font-medium text-gray-500 -mt-0.5">
+                Throw fun at the world
+              </span>
+            </div>
+          </motion.a>
+        )}
 
         {/* Search - center, desktop only */}
         <div className="hidden md:flex flex-1 justify-center min-w-0">
           <div className="relative w-full max-w-2xl">
-            {/* Input wrapper for suggestion overlay */}
-            <div className="relative">
-              <svg
-                className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none z-10"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-              <input
-                type="text"
-                value={inputValue}
-                onChange={handleChange}
-                onKeyDown={handleKeyDown}
-                placeholder="Search countries..."
-                className="w-full h-10 pl-11 pr-10 rounded-full bg-white border border-[#E5E7EB] text-sm text-gray-900 placeholder-gray-400 shadow-sm transition-all duration-200 focus:outline-none focus:border-[#F97316] focus:ring-2 focus:ring-orange-100"
-              />
-              {/* Gray suggestion overlay - positioned on top of input text */}
-              {suggestionSuffix && (
-                <span
-                  className="absolute top-0 left-0 h-10 pl-11 pr-10 flex items-center text-sm pointer-events-none text-gray-300"
-                  aria-hidden="true"
-                >
-                  <span className="invisible">{inputValue.trim()}</span>
-                  <span>{suggestionSuffix}</span>
-                </span>
-              )}
-            </div>
+            <SearchBar
+              onChange={viewMode === "individual" && onSearchIndividual ? onSearchIndividual : onSearchCountry}
+              onConfirm={onSearchConfirm}
+              viewMode={viewMode}
+            />
 
-            {/* Clear button - only when user has typed */}
-            {inputValue && (
+            {/* Leaderboard quick-open button - circle with trophy icon, placed to the right of the search */}
+            {onOpenLeaderboard && (
               <button
-                onClick={handleClear}
-                className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors z-10"
-                aria-label="Clear search"
+                onClick={onOpenLeaderboard}
+                title="Leaderboard"
+                className="absolute right-[-44px] top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/10 backdrop-blur-md border border-white/15 flex items-center justify-center text-gray-700 hover:bg-white/15 hover:border-orange-400/40 transition-all duration-200 z-10"
               >
-                <svg className="w-3 h-3 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                <svg
+                  className="w-4 h-4 text-white/90"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={1.8}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M7 4h10v5a5 5 0 01-10 0V4z" />
+                  <path d="M5 8a3 3 0 003 3" />
+                  <path d="M19 8a3 3 0 01-3 3" />
+                  <path d="M9 15h6" />
+                  <path d="M12 15v4" />
+                  <path d="M7 19h10" />
                 </svg>
               </button>
             )}
-
           </div>
         </div>
 
@@ -184,7 +149,12 @@ export function Navigation({ nickname, countryFlag, onlineCount = 0, selectedCou
           >
             <span className="flex items-center justify-center max-md:w-11 md:w-9 h-full text-gray-500 group-hover:text-red-500 transition-colors duration-300 shrink-0 max-md:text-white/60 max-md:group-hover:text-red-400">
               <svg className="w-[15px] h-[15px]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                />
               </svg>
             </span>
             <span className="text-xs font-semibold text-gray-500 group-hover:text-red-500 max-w-0 overflow-hidden whitespace-nowrap pr-0 group-hover:max-w-[70px] group-hover:pr-4 transition-all duration-300 ease-out max-md:text-white/50 max-md:group-hover:text-red-400">
