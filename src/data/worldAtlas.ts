@@ -39,6 +39,7 @@ import { getCountryByName } from "./countries";
 // runtime) and tree-shake friendly. countries-110m is ~100KB and
 // contains all countries + multipolygons at the detail we need.
 import worldAtlasData from "world-atlas/countries-110m.json";
+import indiaBoundaryData from "./indiaBoundary.json";
 
 // ─── Types ─────────────────────────────────────────────────────────
 
@@ -236,6 +237,9 @@ const COUNTRY_NAME_ALIASES: Record<string, string> = {
   Macedonia: "MK",
 };
 
+const indiaBoundaryFeature = (indiaBoundaryData as unknown as CountryFeatureCollection)
+  .features[0];
+
 function resolveAlpha2FromName(name: string | undefined): string | undefined {
   if (!name) return undefined;
   const exact = getCountryByName(name);
@@ -270,6 +274,9 @@ export function loadWorldAtlas(): CountryFeatureCollection {
     if (!f.properties.iso_a2) {
       const resolved = resolveAlpha2FromName(f.properties.name as string | undefined);
       if (resolved) f.properties.iso_a2 = resolved;
+    }
+    if ((f.properties.iso_a2 || "").toUpperCase() === "IN" && indiaBoundaryFeature?.geometry) {
+      f.geometry = indiaBoundaryFeature.geometry as Geometry;
     }
   }
 

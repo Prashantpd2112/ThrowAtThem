@@ -1,12 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
 import ThreeGlobe from "three-globe";
 import { getCountryByCode } from "@/data/countries";
 import type { Country } from "@/lib/types";
+import { featureCentroid } from "@/data/worldAtlas";
 import {
   GLOBE_RADIUS,
   buildGlobePolygons,
@@ -233,6 +234,8 @@ function CountryRing({ country, isSelected }: { country: Country; isSelected: bo
 
 function Globe({
   polygons,
+  labelsData,
+  labelsVisible,
   selectedCountry,
   highlightedCountry,
   hoveredCode,
@@ -242,6 +245,8 @@ function Globe({
   groupRef,
 }: {
   polygons: ReturnType<typeof buildGlobePolygons>;
+  labelsData: Array<{ text: string; lat: number; lng: number; code: string }>;
+  labelsVisible: boolean;
   selectedCountry: string | null;
   highlightedCountry: string | null;
   hoveredCode: string | null;
@@ -251,13 +256,24 @@ function Globe({
   groupRef: React.RefObject<THREE.Group>;
 }) {
   const globeRef = useRef<any>(null);
-  const { scene, camera, gl } = useThree();
+  const { camera, gl } = useThree();
   const raycaster = useMemo(() => new THREE.Raycaster(), []);
   const pointerNdc = useRef(new THREE.Vector2());
   const resolveIntersectionCode = useCallback((intersection: THREE.Intersection) => {
-    const data = (intersection.object as THREE.Object3D & { __data?: { properties?: { iso_a2?: string } } }).__data;
-    const code = data?.properties?.iso_a2;
-    return code ? code.toUpperCase() : null;
+    let object: THREE.Object3D | null = intersection.object;
+    while (object) {
+      const globeObjType = (object as any).__globeObjType as string | undefined;
+      if (globeObjType === "label" || globeObjType === "html") {
+        object = object.parent;
+        continue;
+      }
+
+      const data = object as THREE.Object3D & { __data?: { properties?: { iso_a2?: string } } };
+      const code = data.__data?.properties?.iso_a2;
+      if (code) return code.toUpperCase();
+      object = object.parent;
+    }
+    return null;
   }, []);
 
   const updateFromPointer = useCallback(
@@ -322,7 +338,17 @@ function Globe({
         if (normalized === highlightedCountry) return "#FCA5A5";
         if (normalized === hoveredCode) return "#FFFFFF";
         return "#FFFFFF";
-      });
+      })
+      .labelsData(labelsVisible ? labelsData : [])
+      .labelLat((d: object) => (d as { lat: number }).lat)
+      .labelLng((d: object) => (d as { lng: number }).lng)
+      .labelText((d: object) => (d as { text: string }).text)
+      .labelColor(() => "#FFFFFF")
+      .labelSize(() => 0.45)
+      .labelAltitude(() => 0.02)
+      .labelResolution(2)
+      .labelIncludeDot(false)
+      .labelsData(labelsVisible ? labelsData : []);
 
     globe.polygonCapMaterial(
       () =>
@@ -346,7 +372,9 @@ function Globe({
     }
 
     globe.scale.setScalar(GLOBE_RADIUS / 100);
-    scene.add(globe);
+    if (groupRef.current) {
+      groupRef.current.add(globe);
+    }
     globeRef.current = globe;
 
     console.log("[WorldMap] globe initialized", {
@@ -377,12 +405,14 @@ function Globe({
       domElement.removeEventListener("pointermove", handlePointerMove);
       domElement.removeEventListener("pointerleave", handlePointerLeave);
       domElement.removeEventListener("click", handleClick);
-      scene.remove(globe);
+      if (groupRef.current) {
+        groupRef.current.remove(globe);
+      }
       disposeObject3D(globe);
       globeRef.current = null;
       document.body.style.cursor = "auto";
     };
-  }, [scene, gl, camera, onBackgroundClick, onCountryClick, updateFromPointer, setHoveredCode]);
+  }, [groupRef, gl, camera, onBackgroundClick, onCountryClick, updateFromPointer, setHoveredCode]);
 
   useEffect(() => {
     const globe = globeRef.current;
@@ -419,7 +449,13 @@ function Globe({
     });
   }, [selectedCountry, highlightedCountry, hoveredCode]);
 
-  return <group ref={groupRef} />;
+  useEffect(() => {
+    const globe = globeRef.current;
+    if (!globe) return;
+    globe.labelsData(labelsVisible ? labelsData : []);
+  }, [labelsData, labelsVisible]);
+
+  return null;
 }
 
 function GlobeScene({
@@ -438,6 +474,31 @@ function GlobeScene({
   const controlsRef = useRef<any>(null);
   const atlas = useMemo(() => loadGlobeAtlas(), []);
   const polygons = useMemo(() => buildGlobePolygons(atlas, heatData, heatMax), [atlas, heatData, heatMax]);
+  const labelsData = useMemo(
+    () =>
+      atlas.features
+        .filter((feature) => feature.properties?.iso_a2 && feature.properties.name)
+        .map((feature) => {
+          const centroid = featureCentroid(feature);
+          if (!centroid) return null;
+          return {
+            code: (feature.properties?.iso_a2 || "").toUpperCase(),
+            text: String(feature.properties?.name || ""),
+            lat: centroid.lat,
+            lng: centroid.lng,
+          };
+        })
+        .filter((item): item is { code: string; text: string; lat: number; lng: number } => Boolean(item)),
+    [atlas]
+  );
+  const [labelsVisible, setLabelsVisible] = useState(false);
+
+  useFrame(({ camera }) => {
+    const controls = controlsRef.current;
+    const distance = controls ? controls.target.distanceTo(camera.position) : camera.position.length();
+    const nextVisible = distance <= GLOBE_RADIUS * 2.7;
+    setLabelsVisible((current: boolean) => (current === nextVisible ? current : nextVisible));
+  });
 
   return (
     <>
@@ -449,6 +510,8 @@ function GlobeScene({
       <group ref={groupRef}>
         <Globe
           polygons={polygons}
+          labelsData={labelsData}
+          labelsVisible={labelsVisible}
           selectedCountry={selectedCountry}
           highlightedCountry={highlightedCountry}
           hoveredCode={hoveredCode}

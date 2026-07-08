@@ -11,6 +11,9 @@ import type { Country } from "@/lib/types";
 export const GLOBE_RADIUS = 100;
 export const HEATMAP_KEY = "__heat__";
 
+const INDIA_FILL = "#FDBA74";
+const PAKISTAN_FILL = "#22C55E";
+
 function buildAlpha2ToCountryMap(
   fc: CountryFeatureCollection
 ): Map<string, CountryFeature> {
@@ -56,6 +59,9 @@ export function resolveDefaultCountryColor(
   heat: number,
   heatMax: number
 ): string {
+  if (code === "IN") return INDIA_FILL;
+  if (code === "PK") return PAKISTAN_FILL;
+
   if (heat > 0 && heatMax > 0) {
     const ratio = heat / heatMax;
     if (ratio < 0.1) return "#DCFCE7";
@@ -80,6 +86,9 @@ export function resolveCountryColor(
   }
 ): string {
   const code = (feature.properties?.iso_a2 || "").toUpperCase();
+  if (code === "IN") return INDIA_FILL;
+  if (code === "PK") return PAKISTAN_FILL;
+
   if (args.selectedCountry === code) return "#F97316";
   if (args.highlightedCountry === code) return "#EF4444";
   if (args.hoveredCode === code) return "#FB923C";
