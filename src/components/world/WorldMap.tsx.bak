@@ -1,0 +1,684 @@
+"use client";
+
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { OrbitControls } from "@react-three/drei";
+import * as THREE from "three";
+import ThreeGlobe from "three-globe";
+import {
+  loadWorldAtlas,
+  getCountryCentroidByCode,
+  type CountryFeature,
+  type CountryFeatureCollection,
+} from "@/data/worldAtlas";
+import { getCountryByCode } from "@/data/countries";
+import type { Country } from "@/lib/types";
+
+// ---------- Types ----------
+
+interface WorldMapProps {
+  onCountryClick: (countryCode: string) => void;
+  onBackgroundClick?: () => void;
+  selectedCountry: string | null;
+  heatData?: Record<string, number>;
+  highlightedCountry?: string | null;
+}
+
+// ---------- Constants ----------
+
+const GLOBE_RADIUS = 100;
+const HEATMAP_KEY = "__heat__"; // properties key used by three-globe for the heat colormap
+
+// ---------- Map country code (ISO-2) to the atlas feature ----------
+
+function buildAlpha2ToCountryMap(
+  fc: CountryFeatureCollection
+): Map<string, CountryFeature> {
+  const m = new Map<string, CountryFeature>();
+  for (const f of fc.features) {
+    const a2 = f.properties?.iso_a2;
+    if (a2 && a2 !== "-99" && a2.length === 2) {
+      m.set(a2.toUpperCase(), f);
+    }
+  }
+  return m;
+}
+
+// Build the list of countries the app knows about (from data/countries.ts)
+// joined with the matching atlas feature. three-globe expects a flat
+// GeoJSON FeatureCollection of polygons, with optional `__heat__` and
+// `__color__` numeric/string properties for color resolution.
+function buildGlobePolygons(
+  fc: CountryFeatureCollection,
+  heatData?: Record<string, number>,
+  heatMax = 1
+): CountryFeatureCollection {
+  const a2ToFeature = buildAlpha2ToCountryMap(fc);
+  const out: CountryFeature[] = [];
+  for (const [, feature] of a2ToFeature) {
+    // Clone the feature; mutate properties for the renderer.
+    const f: CountryFeature = {
+      type: "Feature",
+      properties: { ...feature.properties },
+      geometry: feature.geometry,
+    };
+    const code = (f.properties.iso_a2 || "").toUpperCase();
+    const heat = code && heatData ? heatData[code] ?? 0 : 0;
+    (f.properties as Record<string, unknown>)[HEATMAP_KEY] = heat;
+    // Default color is the country's own color; we override for
+    // selected/highlighted in the polygonCapColor resolver.
+    (f.properties as Record<string, unknown>)["__color__"] =
+      resolveDefaultCountryColor(code, heat, heatMax);
+    out.push(f);
+  }
+  return { type: "FeatureCollection", features: out };
+}
+
+function resolveDefaultCountryColor(
+  code: string,
+  heat: number,
+  heatMax: number
+): string {
+  if (heat > 0 && heatMax > 0) {
+    const ratio = heat / heatMax;
+    if (ratio < 0.1) return "#DCFCE7";
+    if (ratio < 0.25) return "#BBF7D0";
+    if (ratio < 0.4) return "#FEF08A";
+    if (ratio < 0.55) return "#FDE047";
+    if (ratio < 0.7) return "#FB923C";
+    if (ratio < 0.85) return "#F97316";
+    return "#EF4444";
+  }
+  const c = getCountryByCode(code);
+  return c?.color || "#475569";
+}
+
+function resolveCountryColor(
+  feature: CountryFeature,
+  args: {
+    selectedCountry: string | null;
+    highlightedCountry: string | null;
+    hoveredCode: string | null;
+  }
+): string {
+  const code = (feature.properties?.iso_a2 || "").toUpperCase();
+  if (args.selectedCountry === code) return "#F97316";
+  if (args.highlightedCountry === code) return "#EF4444";
+  if (args.hoveredCode === code) return "#FB923C";
+  const fallback = (feature.properties as Record<string, unknown>)[
+    "__color__"
+  ] as string | undefined;
+  return fallback || "#475569";
+}
+
+// ---------- Centroid helper (lat/lng) ----------
+
+function countryCentroidLatLng(country: Country): { lat: number; lng: number } {
+  const c = getCountryCentroidByCode(country.code);
+  if (c) return c;
+  // Fallback: approximate from SVG coordinates
+  const VIEW_CX = 410;
+  const VIEW_CY = 165;
+  const VIEW_LON_PER_UNIT = 360 / 640;
+  const VIEW_LAT_PER_UNIT = 180 / 310;
+  return {
+    lng: (country.coordinates.x - VIEW_CX) * VIEW_LON_PER_UNIT,
+    lat: (VIEW_CY - country.coordinates.y) * VIEW_LAT_PER_UNIT,
+  };
+}
+
+// Convert (lat, lng) → a 3D point on the globe surface.
+function latLngToVec3(
+  lat: number,
+  lng: number,
+  radius: number
+): THREE.Vector3 {
+  const phi = (90 - lat) * (Math.PI / 180);
+  const theta = (lng + 180) * (Math.PI / 180);
+  const x = -radius * Math.sin(phi) * Math.cos(theta);
+  const z = radius * Math.sin(phi) * Math.sin(theta);
+  const y = radius * Math.cos(phi);
+  return new THREE.Vector3(x, y, z);
+}
+
+// ---------- Smooth camera fly-to ----------
+
+function CameraRig({
+  target,
+  distance,
+  controlsRef,
+}: {
+  target: { lat: number; lng: number } | null;
+  distance: number;
+  controlsRef: React.RefObject<any>;
+}) {
+  const { camera } = useThree();
+  const anim = useRef<{
+    fromPos: THREE.Vector3;
+    toPos: THREE.Vector3;
+    fromTgt: THREE.Vector3;
+    toTgt: THREE.Vector3;
+    t: number;
+    active: boolean;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!target) return;
+    const desiredTgt = latLngToVec3(target.lat, target.lng, 0);
+    const dir = desiredTgt.clone().normalize();
+    const desiredPos = dir.clone().multiplyScalar(distance);
+    anim.current = {
+      fromPos: camera.position.clone(),
+      toPos: desiredPos,
+      fromTgt: controlsRef.current
+        ? controlsRef.current.target.clone()
+        : new THREE.Vector3(0, 0, 0),
+      toTgt: desiredTgt,
+      t: 0,
+      active: true,
+    };
+  }, [target?.lat, target?.lng, distance, camera, controlsRef]);
+
+  useFrame((_state, delta) => {
+    const a = anim.current;
+    if (!a || !a.active) return;
+    a.t = Math.min(1, a.t + delta * 0.9);
+    const e = a.t < 0.5 ? 2 * a.t * a.t : 1 - Math.pow(-2 * a.t + 2, 2) / 2;
+    camera.position.lerpVectors(a.fromPos, a.toPos, e);
+    if (controlsRef.current) {
+      controlsRef.current.target.lerpVectors(a.fromTgt, a.toTgt, e);
+      controlsRef.current.update();
+    }
+    if (a.t >= 1) a.active = false;
+  });
+  return null;
+}
+
+// ---------- Auto-rotate wrapper ----------
+
+function AutoRotate({
+  groupRef,
+  enabled,
+  speed = 0.06,
+}: {
+  groupRef: React.RefObject<THREE.Group>;
+  enabled: boolean;
+  speed?: number;
+}) {
+  useFrame((_state, delta) => {
+    if (!enabled) return;
+    if (!groupRef.current) return;
+    groupRef.current.rotation.y += delta * speed;
+  });
+  return null;
+}
+
+// ---------- Atmosphere shells ----------
+
+function AtmosphereShells() {
+  return (
+    <>
+      <mesh scale={1.06}>
+        <sphereGeometry args={[GLOBE_RADIUS, 64, 64]} />
+        <meshBasicMaterial
+          color="#3B82F6"
+          transparent
+          opacity={0.04}
+          side={THREE.BackSide}
+          depthWrite={false}
+        />
+      </mesh>
+      <mesh scale={1.015}>
+        <sphereGeometry args={[GLOBE_RADIUS, 64, 64]} />
+        <meshBasicMaterial
+          color="#60A5FA"
+          transparent
+          opacity={0.08}
+          side={THREE.FrontSide}
+          depthWrite={false}
+        />
+      </mesh>
+    </>
+  );
+}
+
+// ---------- Grid lines (subtle lat/lng wireframe) ----------
+
+function GridLines() {
+  const positions: number[] = [];
+  const r = GLOBE_RADIUS + 0.5;
+  for (const lat of [-60, -30, 0, 30, 60]) {
+    const segs = 96;
+    for (let i = 0; i < segs; i++) {
+      const a1 = (i / segs) * 360 - 180;
+      const a2 = ((i + 1) / segs) * 360 - 180;
+      const p1 = latLngToVec3(lat, a1, r);
+      const p2 = latLngToVec3(lat, a2, r);
+      positions.push(p1.x, p1.y, p1.z, p2.x, p2.y, p2.z);
+    }
+  }
+  for (const lng of [-120, -60, 0, 60, 120]) {
+    const segs = 64;
+    for (let i = 0; i < segs; i++) {
+      const la1 = (i / segs) * 180 - 90;
+      const la2 = ((i + 1) / segs) * 180 - 90;
+      const p1 = latLngToVec3(la1, lng, r);
+      const p2 = latLngToVec3(la2, lng, r);
+      positions.push(p1.x, p1.y, p1.z, p2.x, p2.y, p2.z);
+    }
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute(
+    "position",
+    new THREE.Float32BufferAttribute(positions, 3)
+  );
+  return (
+    <lineSegments>
+      <primitive attach="geometry" object={geo} />
+      <lineBasicMaterial color="#FFFFFF" transparent opacity={0.06} />
+    </lineSegments>
+  );
+}
+
+// ---------- Selected-country ring ----------
+
+function CountryRing({ country, isSelected }: { country: Country; isSelected: boolean }) {
+  const ref = useRef<THREE.Group>(null!);
+
+  useFrame(() => {
+    if (!ref.current) return;
+    const target = isSelected ? 1 : 0;
+    const current = ref.current.scale.x;
+    const next = current + (target - current) * 0.18;
+    ref.current.scale.setScalar(next);
+  });
+
+  const { lat, lng } = countryCentroidLatLng(country);
+  const center = latLngToVec3(lat, lng, GLOBE_RADIUS + 2);
+
+  const normal = center.clone().normalize();
+  const tangent = new THREE.Vector3(0, 1, 0).cross(normal).normalize();
+  if (tangent.lengthSq() < 0.001) tangent.set(1, 0, 0);
+  const bitangent = normal.clone().cross(tangent).normalize();
+
+  const radius = 6;
+  const segments = 64;
+  const positions: number[] = [];
+  for (let i = 0; i <= segments; i++) {
+    const a = (i / segments) * Math.PI * 2;
+    const p = center
+      .clone()
+      .add(tangent.clone().multiplyScalar(Math.cos(a) * radius))
+      .add(bitangent.clone().multiplyScalar(Math.sin(a) * radius));
+    positions.push(p.x, p.y, p.z);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute(
+    "position",
+    new THREE.Float32BufferAttribute(positions, 3)
+  );
+
+  return (
+    <group ref={ref} scale={0}>
+      <line>
+        <primitive attach="geometry" object={geo} />
+        <lineBasicMaterial color="#FB923C" transparent opacity={0.9} />
+      </line>
+    </group>
+  );
+}
+
+// ---------- The actual ThreeGlobe (handles all triangulation) ----------
+
+function Globe({
+  polygons,
+  selectedCountry,
+  highlightedCountry,
+  hoveredCode,
+  setHoveredCode,
+  onCountryClick,
+  onBackgroundClick,
+  groupRef,
+}: {
+  polygons: CountryFeatureCollection;
+  selectedCountry: string | null;
+  highlightedCountry: string | null;
+  hoveredCode: string | null;
+  setHoveredCode: (c: string | null) => void;
+  onCountryClick: (code: string) => void;
+  onBackgroundClick: () => void;
+  groupRef: React.RefObject<THREE.Group>;
+}) {
+  const globeRef = useRef<any>(null);
+  const { scene } = useThree();
+
+  // Build the globe once.
+  useEffect(() => {
+    // three-globe's chain methods (polygonLabel, polygonSideColor, etc.) are
+    // not in its TypeScript types, so we use `any` here for the chainable
+    // builder. The runtime API is stable and well-known.
+    const globe: any = new ThreeGlobe({ animateIn: false })
+      .showGlobe(true)
+      .showAtmosphere(false) // we draw our own
+      .showGraticules(false)
+      .polygonsData(
+        polygons.features as unknown as GeoJSON.Feature<
+          GeoJSON.Geometry,
+          Record<string, unknown>
+        >[]
+      )
+      .polygonAltitude((d: object) => {
+        const code = (d as { properties?: { iso_a2?: string } }).properties
+          ?.iso_a2;
+        if (code && code.toUpperCase() === selectedCountry) return 0.022;
+        if (code && code.toUpperCase() === highlightedCountry) return 0.018;
+        if (code && code.toUpperCase() === hoveredCode) return 0.012;
+        return 0.006;
+      })
+      .polygonCapColor((d: object) => {
+        return resolveCountryColor(d as CountryFeature, {
+          selectedCountry,
+          highlightedCountry,
+          hoveredCode,
+        });
+      })
+      .polygonSideColor(() => "rgba(0,0,0,0.0)")
+      .polygonStrokeColor((d: object) => {
+        const code = (d as { properties?: { iso_a2?: string } }).properties
+          ?.iso_a2;
+        const c = (code || "").toUpperCase();
+        if (c === selectedCountry) return "#FFFFFF";
+        if (c === highlightedCountry) return "#FCA5A5";
+        if (c === hoveredCode) return "#FFFFFF";
+        return "rgba(255,255,255,0.35)";
+      })
+      .onPolygonHover((polygon: object | null) => {
+        if (!polygon) {
+          setHoveredCode(null);
+          document.body.style.cursor = "auto";
+          return;
+        }
+        const code = (polygon as { properties?: { iso_a2?: string } })
+          .properties?.iso_a2;
+        if (code) {
+          setHoveredCode(code.toUpperCase());
+          document.body.style.cursor = "pointer";
+        }
+      })
+      .onPolygonClick((polygon: object) => {
+        const code = (polygon as { properties?: { iso_a2?: string } })
+          .properties?.iso_a2;
+        if (code) onCountryClick(code.toUpperCase());
+      });
+
+    // Sphere material → dark ocean.
+    const sphere = globe.getObjectByName("globe-sphere") as
+      | THREE.Mesh
+      | undefined;
+    if (sphere && sphere.material instanceof THREE.MeshStandardMaterial) {
+      sphere.material.color = new THREE.Color("#031025");
+      sphere.material.roughness = 0.85;
+      sphere.material.metalness = 0.05;
+      sphere.material.emissive = new THREE.Color("#0a1a36");
+      sphere.material.emissiveIntensity = 0.45;
+    }
+
+    // Scale the globe to our desired radius. three-globe uses radius 100
+    // internally; we set it once and it stays consistent.
+    globe.scale.setScalar(GLOBE_RADIUS / 100);
+
+    scene.add(globe);
+    globeRef.current = globe as ThreeGlobe;
+    return () => {
+      scene.remove(globe);
+      globeRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scene]);
+
+  // Update polygon data when heatmap / selection changes.
+  useEffect(() => {
+    const globe = globeRef.current;
+    if (!globe) return;
+    globe.polygonsData(
+      polygons.features as unknown as GeoJSON.Feature<
+        GeoJSON.Geometry,
+        Record<string, unknown>
+      >[]
+    );
+  }, [polygons]);
+
+  // Update colors on hover/select/highlight changes (cheaper than rebuilding).
+  useEffect(() => {
+    const globe = globeRef.current;
+    if (!globe) return;
+    globe.polygonCapColor((d: object) =>
+      resolveCountryColor(d as CountryFeature, {
+        selectedCountry,
+        highlightedCountry,
+        hoveredCode,
+      })
+    );
+    globe.polygonStrokeColor((d: object) => {
+      const code = (d as { properties?: { iso_a2?: string } }).properties
+        ?.iso_a2;
+      const c = (code || "").toUpperCase();
+      if (c === selectedCountry) return "#FFFFFF";
+      if (c === highlightedCountry) return "#FCA5A5";
+      if (c === hoveredCode) return "#FFFFFF";
+      return "rgba(255,255,255,0.35)";
+    });
+    globe.polygonAltitude((d: object) => {
+      const code = (d as { properties?: { iso_a2?: string } }).properties
+        ?.iso_a2;
+      if (code && code.toUpperCase() === selectedCountry) return 0.022;
+      if (code && code.toUpperCase() === highlightedCountry) return 0.018;
+      if (code && code.toUpperCase() === hoveredCode) return 0.012;
+      return 0.006;
+    });
+  }, [selectedCountry, highlightedCountry, hoveredCode]);
+
+  return <group ref={groupRef} />;
+}
+
+// ---------- Globe scene ----------
+
+function GlobeScene({
+  selectedCountry,
+  highlightedCountry,
+  heatData,
+  heatMax,
+  hoveredCode,
+  setHoveredCode,
+  onCountryClick,
+  onBackgroundClick,
+  flyTo,
+  autoRotate,
+}: {
+  selectedCountry: string | null;
+  highlightedCountry: string | null;
+  heatData?: Record<string, number>;
+  heatMax: number;
+  hoveredCode: string | null;
+  setHoveredCode: (c: string | null) => void;
+  onCountryClick: (code: string) => void;
+  onBackgroundClick: () => void;
+  flyTo: { lat: number; lng: number } | null;
+  autoRotate: boolean;
+}) {
+  const groupRef = useRef<THREE.Group>(null!);
+  const controlsRef = useRef<any>(null);
+
+  // Load world atlas once. This is cached.
+  const atlas = useMemo(() => loadWorldAtlas(), []);
+
+  // Build the polygon FeatureCollection for three-globe.
+  const polygons = useMemo(
+    () => buildGlobePolygons(atlas, heatData, heatMax),
+    [atlas, heatData, heatMax]
+  );
+
+  return (
+    <>
+      <ambientLight intensity={0.7} />
+      <directionalLight position={[200, 120, 200]} intensity={1.2} color="#ffffff" />
+      <directionalLight
+        position={[-200, -80, -150]}
+        intensity={0.45}
+        color="#7DD3FC"
+      />
+      <directionalLight position={[0, -250, 0]} intensity={0.25} color="#3B82F6" />
+
+      <group ref={groupRef}>
+        <Globe
+          polygons={polygons}
+          selectedCountry={selectedCountry}
+          highlightedCountry={highlightedCountry}
+          hoveredCode={hoveredCode}
+          setHoveredCode={setHoveredCode}
+          onCountryClick={onCountryClick}
+          onBackgroundClick={onBackgroundClick}
+          groupRef={groupRef}
+        />
+        <AtmosphereShells />
+        <GridLines />
+        {selectedCountry &&
+          (() => {
+            const c = getCountryByCode(selectedCountry);
+            if (!c) return null;
+            return <CountryRing country={c} isSelected />;
+          })()}
+        <AutoRotate groupRef={groupRef} enabled={autoRotate} speed={0.05} />
+      </group>
+
+      <CameraRig
+        target={flyTo}
+        distance={GLOBE_RADIUS * 3.2}
+        controlsRef={controlsRef}
+      />
+
+      <OrbitControls
+        ref={controlsRef}
+        enablePan={false}
+        enableDamping
+        dampingFactor={0.1}
+        rotateSpeed={0.6}
+        zoomSpeed={1.0}
+        minDistance={GLOBE_RADIUS * 1.05}
+        maxDistance={GLOBE_RADIUS * 12}
+        onStart={() => onBackgroundClick?.()}
+      />
+    </>
+  );
+}
+
+// ---------- Idle detection ----------
+
+function useIdle(resumeAfterMs = 4000) {
+  const [idle, setIdle] = useState(true);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    const reset = () => {
+      setIdle(false);
+      if (timer.current) clearTimeout(timer.current);
+      timer.current = setTimeout(() => setIdle(true), resumeAfterMs);
+    };
+    const events: (keyof WindowEventMap)[] = [
+      "mousedown",
+      "mousemove",
+      "wheel",
+      "touchstart",
+      "touchmove",
+      "keydown",
+    ];
+    events.forEach((e) => window.addEventListener(e, reset, { passive: true }));
+    return () => {
+      events.forEach((e) => window.removeEventListener(e, reset));
+      if (timer.current) clearTimeout(timer.current);
+    };
+  }, [resumeAfterMs]);
+  return idle;
+}
+
+// ---------- Public component ----------
+
+export function WorldMap({
+  onCountryClick,
+  onBackgroundClick,
+  selectedCountry,
+  heatData,
+  highlightedCountry,
+}: WorldMapProps) {
+  const [hoveredCode, setHoveredCode] = useState<string | null>(null);
+  const [flyTo, setFlyTo] = useState<{ lat: number; lng: number } | null>(null);
+  const idle = useIdle(4500);
+
+  useEffect(() => {
+    if (!highlightedCountry) {
+      setFlyTo(null);
+      return;
+    }
+    const c = getCountryByCode(highlightedCountry);
+    if (!c) return;
+    const { lat, lng } = countryCentroidLatLng(c);
+    setFlyTo({ lat, lng });
+  }, [highlightedCountry]);
+
+  const heatMax = useMemo(() => {
+    if (!heatData) return 1;
+    return Math.max(...Object.values(heatData), 1);
+  }, [heatData]);
+
+  const initialCamera: [number, number, number] = [-150, 200, 550];
+
+  return (
+    <div className="relative w-full h-full overflow-visible">
+      <Canvas
+        camera={{ position: initialCamera, fov: 50, near: 0.5, far: 2000 }}
+        dpr={[1, 2]}
+        gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
+        style={{ background: "transparent" }}
+        onCreated={({ gl }) => {
+          gl.setClearColor(0x000000, 0);
+        }}
+      >
+        <Suspense fallback={null}>
+          <GlobeScene
+            selectedCountry={selectedCountry}
+            highlightedCountry={highlightedCountry ?? null}
+            heatData={heatData}
+            heatMax={heatMax}
+            hoveredCode={hoveredCode}
+            setHoveredCode={setHoveredCode}
+            onCountryClick={onCountryClick}
+            onBackgroundClick={() => {
+              onBackgroundClick?.();
+            }}
+            flyTo={flyTo}
+            autoRotate={
+              idle && !hoveredCode && !selectedCountry && !highlightedCountry
+            }
+          />
+        </Suspense>
+      </Canvas>
+      <HoverLabel code={hoveredCode} />
+    </div>
+  );
+}
+
+function HoverLabel({ code }: { code: string | null }) {
+  if (!code) return null;
+  const c = getCountryByCode(code);
+  if (!c) return null;
+  return (
+    <div
+      className="pointer-events-none absolute left-1/2 -translate-x-1/2 z-30 px-2.5 py-1 rounded-md text-[11px] font-semibold text-white bg-slate-900/85 border border-white/10 shadow-lg backdrop-blur-sm"
+      style={{ top: "12%" }}
+    >
+      {c.flag} {c.name}
+    </div>
+  );
+}
+
+export default WorldMap;

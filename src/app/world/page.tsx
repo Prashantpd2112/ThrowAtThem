@@ -634,10 +634,8 @@ export default function WorldPage() {
               {presenceError} — data will still sync
             </p>
           </div>
-        )}
-
-        {/* Globe — floats directly on the space background, no card */}
-        <div className="flex-1 min-h-0 mx-4 mt-1 mb-0 flex flex-col overflow-hidden">
+        )}          {/* Globe — floats directly on the space background, no card */}
+          <div className="flex-1 min-h-0 mx-4 mt-1 mb-0 flex flex-col overflow-visible">
           <div className="shrink-0 flex items-center justify-center px-4 py-1.5">
             <span className="text-[22px] font-bold text-white/90 tracking-[0.3px] leading-none">
               🌍 World Map
@@ -765,7 +763,7 @@ export default function WorldPage() {
             {/* CENTER — Map + Throw */}
             <div className="col-span-6 min-h-0 flex flex-col gap-3 md:gap-4">
               {/* Globe — floats directly on space, no card */}
-              <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+              <div className="flex-1 min-h-0 flex flex-col overflow-visible">
                 <div className="shrink-0 flex items-center justify-center px-4 py-2.5">
                   <span className="text-[22px] font-bold text-white/90 tracking-[0.3px] leading-none drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)]">
                     🌍 World Map
