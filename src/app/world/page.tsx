@@ -792,9 +792,7 @@ export default function WorldPage() {
 
         {/* Content — Globe or Individual View */}
         {viewMode === "country" ? (
-          <>
-
-            <div ref={mapRef} className="flex-1 relative min-h-0 mx-4 mt-1 mb-0 overflow-hidden">
+          <div ref={mapRef} className="flex-1 relative min-h-0 mx-4 mt-1 mb-0 overflow-hidden">
               <div className="absolute inset-0">
                 <WorldMap
                   heatData={heatData}
@@ -816,7 +814,6 @@ export default function WorldPage() {
                 </motion.div>
               )}
             </div>
-          </>
         ) : (
           <div className="flex-1 min-h-0 mx-4 mt-1 mb-0 overflow-hidden">
               <IndividualView
@@ -932,7 +929,6 @@ export default function WorldPage() {
         <div className="shrink-0 px-3 md:px-4 pt-2 pb-0">
           <div className="flex items-center justify-between gap-2">
             {selectedPerson && viewMode === "individual" ? (
-              {/* Profile open: only back arrow */}
               <motion.button
                 onClick={() => handleProfileSelect(null)}
                 whileHover={{ scale: 1.03 }}
@@ -944,7 +940,6 @@ export default function WorldPage() {
                 </svg>
               </motion.button>
             ) : (
-              {/* First page: selector + create */}
               <>
                 <ViewModeSelector value={viewMode} onChange={setViewMode} />
                 {viewMode === "individual" && (
@@ -969,7 +964,6 @@ export default function WorldPage() {
               {/* Content — Globe or Individual View */}
               {viewMode === "country" ? (
                 <div className="flex-1 min-h-0 flex flex-col overflow-visible">
-    
                   <div ref={mapRef} className="flex-1 relative min-h-0">
                     <div className="absolute inset-0">
                       <WorldMap
