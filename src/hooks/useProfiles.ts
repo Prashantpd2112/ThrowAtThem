@@ -76,6 +76,7 @@ export function useProfiles() {
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
+      // Supabase not configured at all — show static demo profiles
       setThrowCounts({});
       setProfiles(DUMMY_PROFILES.map((p) => ({ ...p, isDummy: true })));
       setLoading(false);
@@ -88,16 +89,25 @@ export function useProfiles() {
           fetchProfiles(),
           fetchProfileThrowCounts(),
         ]);
+        console.log('[useProfiles] fetchProfiles returned', profilesData.length, 'profiles');
         if (profilesData.length === 0) {
+          // Database exists but is empty — show empty state, not dummy profiles.
+          // Dummy profile IDs don't exist in Supabase and would cause FK violations
+          // in the throws table. Users must create a real profile via the Create button.
+          console.log('[useProfiles] individual_profiles table is empty — showing empty state');
           setThrowCounts({});
-          setProfiles(DUMMY_PROFILES.map((p) => ({ ...p, isDummy: true })));
+          setProfiles([]);
         } else {
+          console.log('[useProfiles] loaded real profiles:', profilesData.map(p => ({ id: p.id, nickname: p.nickname })));
           setThrowCounts(counts);
           setProfiles(profilesData.map((p) => ({ ...p, isDummy: false })));
         }
-      } catch {
+      } catch (err) {
+        console.error('[useProfiles] Failed to fetch profiles:', err);
+        // Database query failed — show empty state for real data.
+        // Dummy profiles would throw FK violations on insert.
         setThrowCounts({});
-        setProfiles(DUMMY_PROFILES.map((p) => ({ ...p, isDummy: true })));
+        setProfiles([]);
       }
       setLoading(false);
     };

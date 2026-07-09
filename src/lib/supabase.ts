@@ -136,11 +136,18 @@ export const ensureGuestExists = async (guest: { id: string; nickname: string; c
 
 export const upsertGuest = async (guest: { id: string; nickname: string; country: string }) => {
   const client = getClient();
-  const { data: existing } = await client
+  // Use maybeSingle() instead of single() — single() throws 406/PGRST116
+  // when no rows match, which is expected for a new guest that hasn't
+  // been synced to Supabase yet.
+  const { data: existing, error: lookupError } = await client
     .from("guests")
     .select("id")
     .eq("id", guest.id)
-    .single();
+    .maybeSingle();
+
+  if (lookupError) {
+    throw lookupError;
+  }
 
   if (existing) {
     const { error } = await client
@@ -155,6 +162,10 @@ export const upsertGuest = async (guest: { id: string; nickname: string; country
       .from("guests")
       .insert(guest);
     if (error) {
+      // 23505 = unique violation — happens when two concurrent
+      // upsertGuest calls both try to insert the same guest.
+      // Treat as success — the row now exists.
+      if (error.code === "23505") return;
       throw error;
     }
   }
@@ -193,7 +204,13 @@ export const insertThrow = async (throwData: {
   if (throwData.target_profile_id) {
     record.target_profile_id = throwData.target_profile_id;
   }
+  console.log('[DEBUG insertThrow] final record payload:', JSON.stringify(record));
   const { error } = await client.from("throws").insert(record);
+  if (error) {
+    console.log('[DEBUG insertThrow] Supabase error:', error);
+  } else {
+    console.log('[DEBUG insertThrow] SUCCESS - target_profile_id in payload:', record.target_profile_id || 'MISSING');
+  }
   if (error) {
     throw error;
   }
@@ -220,19 +237,6 @@ export const fetchTotalThrowCount = async (): Promise<number> => {
     .select("*", { count: "exact", head: true });
   if (error) throw error;
   return typeof count === "number" ? count : 0;
-};
-
-export const fetchHeatData = async (): Promise<Record<string, number>> => {
-  const client = getClient();
-  const { data, error } = await client
-    .from("throws")
-    .select("target_country");
-  if (error) throw error;
-  const counts: Record<string, number> = {};
-  (data as SupabaseThrow[]).forEach((t) => {
-    counts[t.target_country] = (counts[t.target_country] || 0) + 1;
-  });
-  return counts;
 };
 
 // ── Profile Throw Rankings ──
@@ -296,90 +300,6 @@ export const fetchOnlineUsers = async (): Promise<DbUserPresence[]> => {
   return (data || []) as DbUserPresence[];
 };
 
-// ── Country Statistics ──
-export const getCountryStats = async (countryCode: string) => {
-  const client = getClient();
-  const { data: throws, error } = await client
-    .from("throws")
-    .select("*")
-    .eq("target_country", countryCode)
-    .order("created_at", { ascending: false });
-
-  if (error) throw error;
-
-  const data = (throws || []) as SupabaseThrow[];
-  const totalThrows = data.length;
-
-  const objectCounts: Record<string, number> = {};
-  data.forEach((t) => {
-    objectCounts[t.object] = (objectCounts[t.object] || 0) + 1;
-  });
-  const mostUsedObject = Object.entries(objectCounts).sort((a, b) => b[1] - a[1])[0];
-
-  const recentReasons = data.slice(0, 10).map((t) => ({
-    reason: t.reason || "",
-    nickname: t.nickname,
-    object: t.object,
-  }));
-
-  const now = Date.now();
-  const dayMs = 24 * 60 * 60 * 1000;
-  const weekMs = 7 * dayMs;
-
-  const dailyCount = data.filter((t) => now - new Date(t.created_at).getTime() < dayMs).length;
-  const weeklyCount = data.filter((t) => now - new Date(t.created_at).getTime() < weekMs).length;
-
-  return {
-    country_code: countryCode,
-    total_throws: totalThrows,
-    most_used_object: mostUsedObject
-      ? { object: mostUsedObject[0], count: mostUsedObject[1] }
-      : { object: "", count: 0 },
-    recent_reasons: recentReasons,
-    daily_count: dailyCount,
-    weekly_count: weeklyCount,
-    activity_level: (weeklyCount > 50 ? "very_high" : weeklyCount > 20 ? "high" : weeklyCount > 5 ? "medium" : "low") as "low" | "medium" | "high" | "very_high",
-  };
-};
-
-// ── Leaderboard Queries ──
-export const getLeaderboard = async (timePeriod: "daily" | "weekly" | "all_time" = "all_time") => {
-  const client = getClient();
-  let query = client.from("throws").select("target_country, object") as any;
-
-  if (timePeriod === "daily") {
-    const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    query = query.gte("created_at", dayAgo);
-  } else if (timePeriod === "weekly") {
-    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-    query = query.gte("created_at", weekAgo);
-  }
-
-  const { data, error } = await query;
-  if (error) throw error;
-
-  const rows = (data || []) as { target_country: string; object: string }[];
-
-  const countryCounts: Record<string, number> = {};
-  const objectCounts: Record<string, number> = {};
-
-  rows.forEach((t) => {
-    countryCounts[t.target_country] = (countryCounts[t.target_country] || 0) + 1;
-    objectCounts[t.object] = (objectCounts[t.object] || 0) + 1;
-  });
-
-  const countryLeaderboard = Object.entries(countryCounts)
-    .map(([country, count]) => ({ country, count }))
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 20);
-
-  const objectLeaderboard = Object.entries(objectCounts)
-    .map(([object, count]) => ({ object, count }))
-    .sort((a, b) => b.count - a.count);
-
-  return { countryLeaderboard, objectLeaderboard };
-};
-
 // ── Individual Profile Operations ──
 
 export const insertProfile = async (profile: {
@@ -400,6 +320,19 @@ export const insertProfile = async (profile: {
     .single();
   if (error) throw error;
   return (data as { id: string }).id;
+};
+
+// Check if a profile already exists for this guest
+// Returns the profile if found, null otherwise.
+export const fetchProfileByGuestId = async (guestId: string): Promise<DbIndividualProfile | null> => {
+  const client = getClient();
+  const { data, error } = await client
+    .from("individual_profiles")
+    .select("*")
+    .eq("guest_id", guestId)
+    .maybeSingle();
+  if (error) throw error;
+  return data as DbIndividualProfile | null;
 };
 
 export const fetchProfiles = async (): Promise<DbIndividualProfile[]> => {

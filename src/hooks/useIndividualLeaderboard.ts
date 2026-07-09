@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
-import { supabase, isSupabaseConfigured } from "@/lib/supabase";
+import { useState, useCallback, useEffect, useRef } from "react";
+import { supabase, isSupabaseConfigured, subscribeToThrows } from "@/lib/supabase";
 import { IndividualLeaderboardEntry, IndividualObjectStats, ObjectDistribution, TimePeriod } from "@/lib/types";
 import { getObjectById } from "@/data/objects";
 
@@ -11,6 +11,7 @@ export function useIndividualLeaderboard() {
   const [reasonCounts, setReasonCounts] = useState<Record<string, number>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [activePeriod, setActivePeriod] = useState<TimePeriod>("all_time");
+  const unsubRef = useRef<(() => void) | null>(null);
 
   const computeLeaderboard = useCallback(
     (
@@ -144,6 +145,71 @@ export function useIndividualLeaderboard() {
   useEffect(() => {
     fetchData(activePeriod);
   }, [activePeriod, fetchData]);
+
+  // ── Realtime subscription for live leaderboard updates ──
+  // When a new throw aimed at an individual comes in, increment
+  // the count in the local leaderboard state so it updates instantly.
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+
+    unsubRef.current = subscribeToThrows((newThrow) => {
+      if (!newThrow.target_profile_id) return;
+
+      const pid = newThrow.target_profile_id;
+
+      setIndividualLeaderboard((prev) => {
+        // Find the profile in the current leaderboard
+        const existing = prev.find((e) => e.profile_id === pid);
+        if (existing) {
+          // Increment count and re-sort
+          const updated = prev.map((e) =>
+            e.profile_id === pid ? { ...e, count: e.count + 1 } : e
+          );
+          return updated.sort((a, b) => b.count - a.count);
+        }
+        // Profile not in leaderboard yet — trigger a background refetch
+        // to pick up the new profile with its first throw
+        fetchData(activePeriod);
+        return prev;
+      });
+
+      // Also update object stats map (increment if we have data for this profile)
+      setObjectStatsMap((prev) => {
+        const existing = prev[pid];
+        if (!existing) return prev;
+        const obj = getObjectById(newThrow.object);
+        const updatedObjects = existing.objects.map((o) =>
+          o.object_id === newThrow.object
+            ? { ...o, count: o.count + 1 }
+            : o
+        );
+        // If the object wasn't in the list, add it
+        if (!existing.objects.find((o) => o.object_id === newThrow.object)) {
+          updatedObjects.push({
+            object_id: newThrow.object,
+            object_name: obj?.name || newThrow.object,
+            object_emoji: obj?.emoji || "❓",
+            count: 1,
+          });
+        }
+        return {
+          ...prev,
+          [pid]: {
+            ...existing,
+            objects: updatedObjects.sort((a, b) => b.count - a.count),
+            most_used_object: updatedObjects[0] || null,
+            total_throws: existing.total_throws + 1,
+          },
+        };
+      });
+    });
+
+    return () => {
+      if (unsubRef.current) {
+        unsubRef.current();
+      }
+    };
+  }, [fetchData, activePeriod]);
 
   const changePeriod = useCallback((period: TimePeriod) => {
     setActivePeriod(period);

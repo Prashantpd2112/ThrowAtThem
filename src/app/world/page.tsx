@@ -5,32 +5,30 @@ import { useRouter } from "next/navigation";
 import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
 import { Navigation } from "@/components/world/Navigation";
 import FullscreenLeaderboard from "@/components/world/FullscreenLeaderboard";
-import { WorldMap } from "@/components/world/WorldMap";
+
 import { LiveFeed } from "@/components/world/LiveFeed";
 import { Leaderboard } from "@/components/world/Leaderboard";
 import { SpaceBackground } from "@/components/world/SpaceBackground";
 import { ThrowAnimation, triggerThrowAnimation } from "@/components/world/ThrowAnimation";
 import { useGuest } from "@/hooks/useGuest";
 import { useThrows } from "@/hooks/useThrows";
-import { COUNTRIES, getCountryByCode } from "@/data/countries";
 import { THROWABLE_OBJECTS, getObjectById } from "@/data/objects";
 import {
-  fetchHeatData,
   upsertPresence,
   removePresence,
   fetchOnlineUsers,
-  subscribeToThrows,
   subscribeToPresence,
   isSupabaseConfigured,
   ensureGuestExists,
   insertProfile,
+  fetchProfileByGuestId,
 } from "@/lib/supabase";
 import type { ThrowableObject } from "@/lib/types";
-import { ViewModeSelector } from "@/components/world/ViewModeSelector";
+
 import { IndividualView } from "@/components/individual/IndividualView";
 import { CreateButton } from "@/components/individual/CreateButton";
 import { CreateProfileModal } from "@/components/individual/CreateProfileModal";
-import { CountryPopup } from "@/components/world/CountryPopup";
+
 import type { ProfileWithFallback } from "@/hooks/useProfiles";
 
 // ──────────────────────────────────────────────────────────────
@@ -305,29 +303,20 @@ export default function WorldPage() {
   const { guest, isLoaded, clearGuest } = useGuest();
   const { submitThrow } = useThrows();
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
-  const [countryPopupCode, setCountryPopupCode] = useState<string | null>(null);
-  const [showCountryPopup, setShowCountryPopup] = useState(false);
   const [isThrowing, setIsThrowing] = useState(false);
   const [selectedObject, setSelectedObject] = useState<string>("tomato");
   const [reason, setReason] = useState("");
-  const [heatData, setHeatData] = useState<Record<string, number>>({});
   const [onlineCount, setOnlineCount] = useState(0);
-  const [highlightedCountry, setHighlightedCountry] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [viewMode, setViewMode] = useState<"individual" | "country">("individual");
   const [selectedPerson, setSelectedPerson] = useState<ProfileWithFallback | null>(null);
   const [selectedProfileIndex, setSelectedProfileIndex] = useState(0);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [isCreatingProfile, setIsCreatingProfile] = useState(false);
   const [leaderboardOpen, setLeaderboardOpen] = useState(false);
   const [presenceError, setPresenceError] = useState<string | null>(null);
-  const [showMapAlert, setShowMapAlert] = useState(false);
   const [showSelectIndividualAlert, setShowSelectIndividualAlert] = useState(false);
-  const mapRef = useRef<HTMLDivElement>(null);
   const throwBtnRef = useRef<HTMLButtonElement>(null);
   const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const presenceUnsubscribeRef = useRef<(() => void) | null>(null);
-  const throwsUnsubscribeRef = useRef<(() => void) | null>(null);
 
   // Redirect if no guest
   useEffect(() => {
@@ -417,45 +406,7 @@ export default function WorldPage() {
     };
   }, [isLoaded, guest]);
 
-  // ── Heat Data with Realtime Updates ──
-  useEffect(() => {
-    if (!isSupabaseConfigured) return;
 
-    const loadHeatData = async () => {
-      try {
-        const data = await fetchHeatData();
-        setHeatData(data);
-      } catch {
-        // silently handle
-      }
-    };
-
-    loadHeatData();
-
-    // Subscribe to new throws to update heat data in realtime
-    throwsUnsubscribeRef.current = subscribeToThrows(
-      (newThrow) => {
-        setHeatData((prev) => ({
-          ...prev,
-          [newThrow.target_country]: (prev[newThrow.target_country] || 0) + 1,
-        }));
-      },
-      () => {}
-    );
-
-    return () => {
-      if (throwsUnsubscribeRef.current) {
-        throwsUnsubscribeRef.current();
-      }
-    };
-  }, []);
-
-  // Auto-dismiss the map alert after 2 seconds
-  useEffect(() => {
-    if (!showMapAlert) return;
-    const timer = setTimeout(() => setShowMapAlert(false), 2000);
-    return () => clearTimeout(timer);
-  }, [showMapAlert]);
 
   // Auto-dismiss the select-individual alert after 2 seconds
   useEffect(() => {
@@ -477,69 +428,10 @@ export default function WorldPage() {
     router.replace("/");
   }, [clearGuest, guest, router]);
 
-  const handleCountryClick = useCallback((code: string) => {
-    setSelectedCountry((prev) => (prev === code ? null : code));
-  }, []);
 
-  const handleSearchCountry = useCallback(
-    (query: string) => {
-      setSearchQuery(query);
-      if (query.trim()) {
-        const normalized = query.toLowerCase().trim();
-        const found = getCountryByCode(query.toUpperCase()) || getCountryByCode(query);
-        if (found) {
-          setHighlightedCountry(found.code);
-        } else {
-          const foundByName = COUNTRIES.find(
-            (c) => c.name.toLowerCase().includes(normalized) || c.code.toLowerCase() === normalized
-          );
-          if (foundByName) {
-            setHighlightedCountry(foundByName.code);
-          } else {
-            setHighlightedCountry(null);
-          }
-        }
-      } else {
-        setHighlightedCountry(null);
-      }
-    },
-    []
-  );
-
-  const handleSearchIndividual = useCallback(
-    (query: string) => {
-      setSearchQuery(query);
-    },
-    []
-  );
-
-  const handleSearchConfirm = useCallback(
-    (query: string) => {
-      const normalized = query.toLowerCase().trim();
-      const found = getCountryByCode(query.toUpperCase()) || getCountryByCode(query);
-      if (found) {
-        setSelectedCountry(found.code);
-        setHighlightedCountry(null);
-        setSearchQuery("");
-        return;
-      }
-      const foundByName = COUNTRIES.find(
-        (c) => c.name.toLowerCase().includes(normalized) || c.code.toLowerCase() === normalized
-      );
-      if (foundByName) {
-        setSelectedCountry(foundByName.code);
-        setHighlightedCountry(null);
-        setSearchQuery("");
-      }
-    },
-    []
-  );
-
-  // Determine the effective target: in individual mode with a selected person, use their country
-  const effectiveTargetCountry = selectedPerson?.country || selectedCountry;
-  const targetCountry = effectiveTargetCountry ? getCountryByCode(effectiveTargetCountry) : null;
 
   const handleProfileSelect = useCallback((profile: ProfileWithFallback | null) => {
+    console.log('[DEBUG handleProfileSelect] profile:', profile?.id, 'isDummy:', profile?.isDummy, 'nickname:', profile?.nickname);
     setSelectedPerson(profile);
     if (profile) {
       setSelectedCountry(profile.country);
@@ -557,6 +449,15 @@ export default function WorldPage() {
     if (!guest) return;
     setIsCreatingProfile(true);
     try {
+      // Check if this guest already has a profile — prevent duplicates
+      const existing = await fetchProfileByGuestId(guest.id);
+      if (existing) {
+        console.log('[CreateProfile] Guest already has a profile:', existing.id, '— selecting existing');
+        setShowCreateModal(false);
+        handleProfileSelect(existing);
+        return;
+      }
+
       const id = await insertProfile({
         guest_id: guest.id,
         nickname: data.nickname,
@@ -580,20 +481,15 @@ export default function WorldPage() {
     async (objectId: string, reason: string) => {
       if (!guest || isThrowing) return;
 
-      // Check if we have a target (country or person)
+      // Check if we have a target (person's country)
       const target = selectedPerson?.country || selectedCountry;
       if (!target) {
-        if (viewMode === "country") {
-          setShowMapAlert(true);
-        } else {
-          setShowSelectIndividualAlert(true);
-        }
+        setShowSelectIndividualAlert(true);
         return;
       }
 
       setIsThrowing(true);
 
-      const mapEl = mapRef.current;
       const btnEl = throwBtnRef.current;
       let startX = window.innerWidth * 0.5;
       let startY = window.innerHeight * 0.7;
@@ -604,11 +500,6 @@ export default function WorldPage() {
         const r = btnEl.getBoundingClientRect();
         startX = r.left + r.width / 2;
         startY = r.top + r.height / 2;
-      }
-      if (mapEl) {
-        const r = mapEl.getBoundingClientRect();
-        targetX = r.left + r.width / 2;
-        targetY = r.top + r.height / 3;
       }
 
       const obj = getObjectById(objectId);
@@ -625,15 +516,19 @@ export default function WorldPage() {
         return;
       }
 
+      // DEBUG: Check what selectedPerson looks like right now
+      console.log('[DEBUG handleThrow] selectedPerson:', selectedPerson?.id, 'isDummy:', selectedPerson?.isDummy, 'nickname:', selectedPerson?.nickname);
+
       // Only pass target_profile_id for real (non-dummy) profiles —
       // dummy profile IDs don't exist in the Supabase table and would
       // cause a foreign key violation, silently failing the throw.
       const targetProfileId = selectedPerson && !selectedPerson.isDummy ? selectedPerson.id : undefined;
+      console.log('[DEBUG handleThrow] targetProfileId:', targetProfileId);
+      console.log('[DEBUG handleThrow] calling submitThrow with targetProfileId:', targetProfileId);
       const success = await submitThrow(guest.id, guest.nickname, guest.country, target, objectId, reason, targetProfileId);
       setIsThrowing(false);
 
       if (success && target) {
-        setHeatData((prev) => ({ ...prev, [target]: (prev[target] || 0) + 1 }));
         setReason("");
       }
     },
@@ -660,22 +555,14 @@ export default function WorldPage() {
     );
   }
 
-  const guestCountry = getCountryByCode(guest.country);
-
   if (leaderboardOpen) {
     return (
       <div className="min-h-screen md:h-screen flex flex-col bg-[#03040A] overflow-hidden">
         <SpaceBackground />
         <Navigation
           nickname={guest.nickname}
-          countryFlag={guestCountry?.flag || "🌍"}
+          countryFlag={"🌍"}
           onlineCount={onlineCount}
-          selectedCountryName={targetCountry?.name || null}
-          selectedCountryFlag={targetCountry?.flag || null}
-          viewMode={viewMode}
-          onSearchCountry={handleSearchCountry}
-          onSearchIndividual={handleSearchIndividual}
-          onSearchConfirm={handleSearchConfirm}
           onLogout={handleLogout}
           showBackButton={true}
           onBackFromLeaderboard={closeLeaderboard}
@@ -706,55 +593,13 @@ export default function WorldPage() {
         <div className="shrink-0">
           <Navigation
             nickname={guest.nickname}
-            countryFlag={guestCountry?.flag || "🌍"}
+            countryFlag={"🌍"}
             onlineCount={onlineCount}
-            selectedCountryName={targetCountry?.name || null}
-            selectedCountryFlag={targetCountry?.flag || null}
-            viewMode={viewMode}
-            onSearchCountry={handleSearchCountry}
-            onSearchIndividual={handleSearchIndividual}
-            onSearchConfirm={handleSearchConfirm}
             onLogout={handleLogout}
-             onOpenLeaderboard={openLeaderboard}
           />
         </div>
 
-        {/* Search + Leaderboard button */}
-        <div className="shrink-0 px-4 pt-3 pb-1">
-          <div className="flex items-center gap-2">
-            <div className="relative flex-1">
-              <svg
-                className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/50"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => viewMode === "country" ? handleSearchCountry(e.target.value) : handleSearchIndividual(e.target.value)}
-                placeholder={viewMode === "country" ? "Search countries..." : "Search individuals..."}
-                className="w-full h-10 pl-10 pr-4 rounded-full bg-white/10 backdrop-blur-md border border-white/15 text-sm text-white/90 placeholder-white/40 shadow-[0_4px_16px_rgba(0,0,0,0.12)] focus:outline-none focus:border-white/30 focus:ring-1 focus:ring-white/10"
-              />
-            </div>
-            <button
-              onClick={openLeaderboard}
-              title="Leaderboard"
-              className="shrink-0 w-9 h-9 rounded-full bg-white/10 backdrop-blur-md border border-white/15 flex items-center justify-center text-white/80 hover:bg-white/15 hover:border-orange-400/40 transition-all duration-200"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
-                <path d="M7 4h10v5a5 5 0 01-10 0V4z" />
-                <path d="M5 8a3 3 0 003 3" />
-                <path d="M19 8a3 3 0 01-3 3" />
-                <path d="M9 15h6" />
-                <path d="M12 15v4" />
-                <path d="M7 19h10" />
-              </svg>
-            </button>
-          </div>
-        </div>
+
 
         {/* Connection banner */}
         {presenceError && (
@@ -765,10 +610,10 @@ export default function WorldPage() {
           </div>
         )}
 
-        {/* Controls row: Back, Selector, Create */}
+        {/* Controls row: Back, Leaderboard, Create */}
         <div className="relative z-20 shrink-0 px-4 pt-1 pb-0.5">
           <div className="flex items-center justify-between gap-2">
-            {selectedPerson && viewMode === "individual" ? (
+            {selectedPerson ? (
               <motion.button
                 onClick={() => handleProfileSelect(null)}
                 whileHover={{ scale: 1.03 }}
@@ -781,57 +626,43 @@ export default function WorldPage() {
               </motion.button>
             ) : (
               <>
-                <ViewModeSelector value={viewMode} onChange={setViewMode} />
-                {viewMode === "individual" && (
-                  <CreateButton onClick={() => setShowCreateModal(true)} />
-                )}
+                <button
+                  onClick={openLeaderboard}
+                  className="flex items-center gap-2 h-9 px-4 rounded-full bg-white/10 backdrop-blur-md border border-white/15 shadow-[0_4px_16px_rgba(0,0,0,0.12)] hover:bg-white/15 active:bg-white/20 transition-all duration-200 text-sm text-white/90 font-medium"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M7 4h10v5a5 5 0 01-10 0V4z" />
+                    <path d="M5 8a3 3 0 003 3" />
+                    <path d="M19 8a3 3 0 01-3 3" />
+                    <path d="M9 15h6" />
+                    <path d="M12 15v4" />
+                    <path d="M7 19h10" />
+                  </svg>
+                  <span>Leaderboard</span>
+                </button>
+                <CreateButton onClick={() => setShowCreateModal(true)} />
               </>
             )}
           </div>
         </div>
 
-        {/* Content — Globe or Individual View */}
-        {viewMode === "country" ? (
-          <div ref={mapRef} className="flex-1 relative min-h-0 mx-4 mt-1 mb-0 overflow-hidden">
-              <div className="absolute inset-0">
-                <WorldMap
-                  heatData={heatData}
-                  selectedCountry={selectedCountry}
-                  highlightedCountry={highlightedCountry}
-                  onCountryClick={handleCountryClick}
-                  onBackgroundClick={() => setSelectedCountry(null)}
-                />
-              </div>
-              {showMapAlert && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none"
-                >
-                  <div className="bg-transparent border-2 border-red-500 text-red-500 rounded-xl px-6 py-3.5 text-sm font-bold shadow-lg select-none">
-                    Select a country to throw
-                  </div>
-                </motion.div>
-              )}
-            </div>
-        ) : (
-          <div className="flex-1 min-h-0 mx-4 mt-1 mb-0 overflow-hidden">
-              <IndividualView
-                selectedProfile={selectedPerson}
-                onSelectProfile={handleProfileSelect}
-                selectedProfileIndex={selectedProfileIndex}
-              />
-              {showSelectIndividualAlert && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="absolute inset-0 flex items-center justify-center z-40 pointer-events-none"
-                >
-                  <div className="bg-transparent border-2 border-red-500 text-red-500 rounded-xl px-6 py-3.5 text-sm font-bold shadow-lg select-none">Select individual to throw</div>
-                </motion.div>
-              )}
-            </div>
-        )}
+        {/* Content — Individual View */}
+        <div className="flex-1 min-h-0 mx-4 mt-1 mb-0 overflow-hidden relative">
+          <IndividualView
+            selectedProfile={selectedPerson}
+            onSelectProfile={handleProfileSelect}
+            selectedProfileIndex={selectedProfileIndex}
+          />
+          {showSelectIndividualAlert && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="absolute inset-0 flex items-center justify-center z-40 pointer-events-none"
+            >
+              <div className="bg-transparent border-2 border-red-500 text-red-500 rounded-xl px-6 py-3.5 text-sm font-bold shadow-lg select-none">Select individual to throw</div>
+            </motion.div>
+          )}
+        </div>
 
         {/* Throw panel — pinned to bottom */}
         <div className="shrink-0 px-4 pt-3 pb-3">
@@ -903,16 +734,9 @@ export default function WorldPage() {
         <div className="shrink-0">
           <Navigation
             nickname={guest.nickname}
-            countryFlag={guestCountry?.flag || "🌍"}
+            countryFlag={"🌍"}
             onlineCount={onlineCount}
-            selectedCountryName={targetCountry?.name || null}
-            selectedCountryFlag={targetCountry?.flag || null}
-            viewMode={viewMode}
-            onSearchCountry={handleSearchCountry}
-            onSearchIndividual={handleSearchIndividual}
-            onSearchConfirm={handleSearchConfirm}
             onLogout={handleLogout}
-            onOpenLeaderboard={openLeaderboard}
           />
         </div>
 
@@ -925,10 +749,10 @@ export default function WorldPage() {
           </div>
         )}
 
-        {/* Controls row: Back, Selector, Create */}
+        {/* Controls row: Back, Leaderboard, Create */}
         <div className="shrink-0 px-3 md:px-4 pt-2 pb-0">
           <div className="flex items-center justify-between gap-2">
-            {selectedPerson && viewMode === "individual" ? (
+            {selectedPerson ? (
               <motion.button
                 onClick={() => handleProfileSelect(null)}
                 whileHover={{ scale: 1.03 }}
@@ -941,10 +765,21 @@ export default function WorldPage() {
               </motion.button>
             ) : (
               <>
-                <ViewModeSelector value={viewMode} onChange={setViewMode} />
-                {viewMode === "individual" && (
-                  <CreateButton onClick={() => setShowCreateModal(true)} />
-                )}
+                <button
+                  onClick={openLeaderboard}
+                  className="flex items-center gap-2 h-9 px-4 rounded-full bg-white/10 backdrop-blur-md border border-white/15 shadow-[0_4px_16px_rgba(0,0,0,0.12)] hover:bg-white/15 active:bg-white/20 transition-all duration-200 text-sm text-white/90 font-medium"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M7 4h10v5a5 5 0 01-10 0V4z" />
+                    <path d="M5 8a3 3 0 003 3" />
+                    <path d="M19 8a3 3 0 01-3 3" />
+                    <path d="M9 15h6" />
+                    <path d="M12 15v4" />
+                    <path d="M7 19h10" />
+                  </svg>
+                  <span>Leaderboard</span>
+                </button>
+                <CreateButton onClick={() => setShowCreateModal(true)} />
               </>
             )}
           </div>
@@ -961,52 +796,25 @@ export default function WorldPage() {
 
             {/* CENTER — Map + Throw */}
             <div className="col-span-6 min-h-0 flex flex-col gap-3 md:gap-4">
-              {/* Content — Globe or Individual View */}
-              {viewMode === "country" ? (
-                <div className="flex-1 min-h-0 flex flex-col overflow-visible">
-                  <div ref={mapRef} className="flex-1 relative min-h-0">
-                    <div className="absolute inset-0">
-                      <WorldMap
-                        heatData={heatData}
-                        selectedCountry={selectedCountry}
-                        highlightedCountry={highlightedCountry}
-                        onCountryClick={handleCountryClick}
-                        onBackgroundClick={() => setSelectedCountry(null)}
-                      />
+              {/* Content — Individual View */}
+              <div className="flex-1 min-h-0 overflow-hidden relative">
+                <IndividualView
+                  selectedProfile={selectedPerson}
+                  onSelectProfile={handleProfileSelect}
+                  selectedProfileIndex={selectedProfileIndex}
+                />
+                {showSelectIndividualAlert && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="absolute inset-0 flex items-center justify-center z-40 pointer-events-none"
+                  >
+                    <div className="bg-red-600 text-white rounded-xl px-6 py-3.5 text-sm font-bold shadow-lg select-none">
+                      Select individual to throw
                     </div>
-                    {showMapAlert && (
-                      <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none"
-                      >
-                        <div className="bg-black/65 backdrop-blur-sm text-red-400 rounded-xl px-6 py-3.5 text-sm font-bold shadow-lg select-none">
-                          Select a country to throw
-                        </div>
-                      </motion.div>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                <div className="flex-1 min-h-0 overflow-hidden">
-                  <IndividualView
-                    selectedProfile={selectedPerson}
-                    onSelectProfile={handleProfileSelect}
-                    selectedProfileIndex={selectedProfileIndex}
-                  />
-                  {showSelectIndividualAlert && (
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      className="absolute inset-0 flex items-center justify-center z-40 pointer-events-none"
-                    >
-                      <div className="bg-red-600 text-white rounded-xl px-6 py-3.5 text-sm font-bold shadow-lg select-none">
-                        Select individual to throw
-                      </div>
-                    </motion.div>
-                  )}
-                </div>
-              )}
+                  </motion.div>
+                )}
+              </div>
 
               <div className="shrink-0">
                 <div className="rounded-2xl bg-white/85 backdrop-blur-sm border border-[#E5E7EB] shadow-[0_4px_20px_rgba(0,0,0,0.04)] p-3 md:p-4">
@@ -1082,13 +890,6 @@ export default function WorldPage() {
       </div>
 
       {/* Mobile below-fold leaderboard moved to fullscreen via the leaderboard button */}
-
-      {/* Country Popup */}
-      <CountryPopup
-        isOpen={showCountryPopup}
-        countryCode={countryPopupCode}
-        onClose={() => setShowCountryPopup(false)}
-      />
 
       {/* Create Profile Modal */}
       <CreateProfileModal

@@ -3,8 +3,8 @@ export interface Country {
   name: string;
   flag: string;
   color: string;
-  path: string; // SVG path data
-  coordinates: { x: number; y: number }; // label position
+  path: string;
+  coordinates: { x: number; y: number };
 }
 
 export interface ThrowableObject {
@@ -21,13 +21,11 @@ export interface ThrowEntry {
   player_id: string;
   nickname: string;
   thrower_country: string;
-  target_country: string;
-  country_name?: string;
-  thrower_country_name?: string | null;
-  thrower_flag?: string | null;
   object: string;
   reason: string;
   created_at: string;
+  target_profile_id?: string | null;
+  target_profile_name?: string | null;
 }
 
 export interface Guest {
@@ -46,53 +44,11 @@ export interface UserPresence {
   created_at: string;
 }
 
-export interface CountryStats {
-  country_code: string;
-  country_name: string;
-  flag: string;
-  total_throws: number;
-  most_used_object: { object: string; count: number };
-  recent_reasons: { reason: string; nickname: string; object: string }[];
-  activity_level: "low" | "medium" | "high" | "very_high";
-  daily_count: number;
-  weekly_count: number;
-}
-
-export interface CountryThrow {
-  id: string;
-  username: string;
-  reason: string;
-  object_name: string;
-  object_emoji: string;
-  created_at: string;
-}
-
-export interface LeaderboardEntry {
-  country_name: string;
-  country_code: string;
-  flag: string;
-  count: number;
-  throws: CountryThrow[];
-}
-
-export interface ObjectLeaderboardEntry {
-  object: string;
-  count: number;
-  emoji: string;
-}
-
 export interface ObjectDistribution {
   object_id: string;
   object_name: string;
   object_emoji: string;
   count: number;
-}
-
-export interface CountryObjectStats {
-  country_code: string;
-  objects: ObjectDistribution[];
-  most_used_object: ObjectDistribution | null;
-  total_throws: number;
 }
 
 export interface IndividualLeaderboardEntry {

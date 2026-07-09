@@ -33,13 +33,11 @@ export function useGuest() {
     setGuest(newGuest);
     setSyncError(null);
 
-    // Sync to Supabase in the background (fire and forget)
-    if (isSupabaseConfigured) {
-      upsertGuest(newGuest).catch((err) => {
-        console.warn("Failed to sync guest to Supabase:", err);
-        setSyncError("Guest sync failed, but you can still play");
-      });
-    }
+    // Guest row will be created by ensureGuestExists when the world page
+    // mounts its presence effect. No need to fire-and-forget upsertGuest
+    // here — that creates a race condition with ensureGuestExists and
+    // causes 409 Conflict errors. The world page's presence effect
+    // handles both the insert and update for the guest row.
 
     return newGuest;
   }, []);

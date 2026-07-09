@@ -53,32 +53,12 @@ export const SearchBar = forwardRef<HTMLInputElement, SearchBarProps>(function S
   // Compute the best suggestion depending on viewMode
   const suggestion = useMemo(() => {
     const q = value.trim().toLowerCase();
-    if (!q) return null;
-
-    if (viewMode === "individual") {
+    if (!q) return null;      // Search individual profiles only
       if (profiles && profiles.length > 0) {
         const p = profiles.find((p) => p.nickname.toLowerCase().startsWith(q));
         if (p && p.nickname.toLowerCase() !== q) return p.nickname;
       }
-      const codeMatch = getCountryByCode(value.toUpperCase());
-      if (codeMatch) return codeMatch.name;
-      const match = COUNTRIES.find((c) => c.name.toLowerCase().startsWith(q));
-      if (match && match.name.toLowerCase() !== q) return match.name;
       return null;
-    }
-
-    // Country mode
-    const codeMatch = getCountryByCode(value.toUpperCase());
-    if (codeMatch) return codeMatch.name;
-    const match = COUNTRIES.find((c) => c.name.toLowerCase().startsWith(q));
-    if (match && match.name.toLowerCase() !== q) return match.name;
-
-    if (profiles && profiles.length > 0) {
-      const p = profiles.find((p) => p.nickname.toLowerCase().startsWith(q));
-      if (p && p.nickname.toLowerCase() !== q) return p.nickname;
-    }
-
-    return null;
   }, [value, profiles, viewMode]);
 
   const suggestionSuffix = useMemo(() => {

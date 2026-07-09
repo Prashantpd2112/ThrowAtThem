@@ -8,32 +8,18 @@ interface NavigationProps {
   nickname: string;
   countryFlag: string;
   onlineCount?: number;
-  selectedCountryName?: string | null;
-  selectedCountryFlag?: string | null;
-  onSearchCountry: (query: string) => void;
-  onSearchIndividual?: (query: string) => void;
-  onSearchConfirm?: (query: string) => void;
   onLogout: () => void;
-  onOpenLeaderboard?: () => void;
   showBackButton?: boolean;
   onBackFromLeaderboard?: () => void;
-  viewMode?: "individual" | "country";
 }
 
 export function Navigation({
   nickname,
   countryFlag,
   onlineCount = 0,
-  selectedCountryName,
-  selectedCountryFlag,
-  onSearchCountry,
-  onSearchIndividual,
-  onSearchConfirm,
   onLogout,
-  onOpenLeaderboard,
   showBackButton,
   onBackFromLeaderboard,
-  viewMode = "country",
 }: NavigationProps) {
   return (
     <nav
@@ -75,44 +61,15 @@ export function Navigation({
               </span>
             </div>
           </motion.a>
-        )}
-
-        {/* Search - center, desktop only */}
-        <div className="hidden md:flex flex-1 justify-center min-w-0">
-          <div className="relative w-full max-w-2xl">
-            <SearchBar
-              onChange={viewMode === "individual" && onSearchIndividual ? onSearchIndividual : onSearchCountry}
-              onConfirm={onSearchConfirm}
-              viewMode={viewMode}
-            />
-
-            {/* Leaderboard quick-open button - circle with trophy icon, placed to the right of the search */}
-            {onOpenLeaderboard && (
-              <button
-                onClick={onOpenLeaderboard}
-                title="Leaderboard"
-                className="absolute right-[-44px] top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/10 backdrop-blur-md border border-white/15 flex items-center justify-center text-gray-700 hover:bg-white/15 hover:border-orange-400/40 transition-all duration-200 z-10"
-              >
-                <svg
-                  className="w-4 h-4 text-white/90"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={1.8}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M7 4h10v5a5 5 0 01-10 0V4z" />
-                  <path d="M5 8a3 3 0 003 3" />
-                  <path d="M19 8a3 3 0 01-3 3" />
-                  <path d="M9 15h6" />
-                  <path d="M12 15v4" />
-                  <path d="M7 19h10" />
-                </svg>
-              </button>
-            )}
+        )}        {/* Search - center, desktop only */}
+          <div className="hidden md:flex flex-1 justify-center min-w-0">
+            <div className="relative w-full max-w-2xl">
+              <SearchBar
+                onChange={() => {}}
+                viewMode="individual"
+              />
+            </div>
           </div>
-        </div>
 
         {/* Right section */}
         <div className="flex items-center max-md:gap-1.5 md:gap-2.5 shrink-0 max-md:ml-auto">

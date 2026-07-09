@@ -16,12 +16,14 @@ export function useThrows() {
       reason: string,
       targetProfileId?: string | null
     ) => {
+      console.log('[DEBUG submitThrow] targetProfileId received:', targetProfileId);
       setError(null);
       if (!isSupabaseConfigured) {
         setError("Supabase not configured");
         return false;
       }
       try {
+        console.log('[DEBUG submitThrow] calling insertThrow with target_profile_id:', targetProfileId);
         await insertThrow({
           guest_id: guestId,
           nickname,

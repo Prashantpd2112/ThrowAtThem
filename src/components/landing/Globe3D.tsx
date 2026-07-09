@@ -141,8 +141,22 @@ export function Globe3D() {
       <Canvas
         camera={{ position: [0, 0, 6], fov: 45 }}
         dpr={[1, 2]}
-        gl={{ antialias: true, alpha: true }}
+        gl={{
+          antialias: true,
+          alpha: true,
+          powerPreference: "high-performance",
+        }}
         resize={{ offsetSize: true }}
+        onCreated={({ gl }) => {
+          // Handle WebGL context loss — don't crash, silently recover
+          gl.domElement.addEventListener("webglcontextlost", (e) => {
+            e.preventDefault();
+            console.warn("[Globe3D] WebGL context lost — rendering paused");
+          });
+          gl.domElement.addEventListener("webglcontextrestored", () => {
+            console.info("[Globe3D] WebGL context restored");
+          });
+        }}
       >
         <AnimatedGlobe />
       </Canvas>

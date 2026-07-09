@@ -4,8 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ThrowEntry } from "@/lib/types";
 import { formatRelativeTime } from "@/lib/utils";
-import { fetchRecentThrows, subscribeToThrows, isSupabaseConfigured, fetchTotalThrowCount } from "@/lib/supabase";
-import { getCountryByCode } from "@/data/countries";
+import { fetchRecentThrows, subscribeToThrows, isSupabaseConfigured, fetchTotalThrowCount, supabase } from "@/lib/supabase";
 import { getObjectById } from "@/data/objects";
 
 // Compact number formatter: 845 -> "845", 1250 -> "1.2K", 12500 -> "12.5K",
@@ -22,20 +21,67 @@ function formatCompactNumber(n: number): string {
     if (n >= v) {
       const scaled = n / v;
       const display = scaled >= 100 ? Math.round(scaled) : Math.round(scaled * 10) / 10;
-      // Trim a trailing ".0" (e.g. "2.0K" -> "2K")
       return (Number.isInteger(display) ? String(display) : display.toFixed(1)) + s;
     }
   }
   return String(Math.floor(n));
 }
 
+// Cache profile names to avoid fetching the same one repeatedly
+const profileNameCache = new Map<string, string>();
+
+async function resolveProfileNames(profileIds: string[]): Promise<void> {
+  const uncached = profileIds.filter((id) => !profileNameCache.has(id));
+  if (uncached.length === 0) return;
+  try {
+    const { data, error } = await supabase
+      .from("individual_profiles")
+      .select("id, nickname")
+      .in("id", uncached);
+    if (error || !data) return;
+    for (const profile of data) {
+      profileNameCache.set(profile.id, profile.nickname);
+    }
+  } catch {
+    // Silently handle
+  }
+}
+
+function getCachedProfileName(profileId: string): string | null {
+  return profileNameCache.get(profileId) || null;
+}
+
 export function LiveFeed() {
   const [throws, setThrows] = useState<ThrowEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [realtimeError, setRealtimeError] = useState<string | null>(null);
-  // Real total of every throw in the database. null = not yet fetched.
   const [totalThrows, setTotalThrows] = useState<number | null>(null);
   const unsubscribeRef = useRef<(() => void) | null>(null);
+
+  // Enrich a raw throw from the DB with target profile name (sync, uses cache)
+  const enrichThrow = (raw: {
+    id: string;
+    guest_id: string;
+    nickname: string;
+    thrower_country: string;
+    target_profile_id: string | null;
+    object: string;
+    reason: string;
+    created_at: string;
+  }): ThrowEntry => {
+    const obj = getObjectById(raw.object);
+    return {
+      id: raw.id,
+      player_id: raw.guest_id,
+      nickname: raw.nickname,
+      thrower_country: raw.thrower_country,
+      object: obj?.emoji || "❓",
+      reason: raw.reason,
+      created_at: raw.created_at,
+      target_profile_id: raw.target_profile_id,
+      target_profile_name: raw.target_profile_id ? getCachedProfileName(raw.target_profile_id) : null,
+    };
+  };
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
@@ -43,74 +89,37 @@ export function LiveFeed() {
       return;
     }
 
-    // Fetch the real total count in parallel with the recent throws list.
-    // This is a one-time load — the badge will NOT update in realtime.
     fetchTotalThrowCount()
-      .then((count) => {
-        setTotalThrows(count);
-      })
-      .catch(() => {
-        // Keep the previous value on failure; initial null will render as "0 throws".
-      });
+      .then((count) => setTotalThrows(count))
+      .catch(() => {});
 
     fetchRecentThrows(50)
-      .then((data) => {
-        const enriched = data.map((t) => {
-          const country = getCountryByCode(t.target_country);
-          const throwerCountry = getCountryByCode(t.thrower_country);
-          const obj = getObjectById(t.object);
-          return {
-            id: t.id,
-            player_id: t.guest_id,
-            nickname: t.nickname,
-            thrower_country: t.thrower_country,
-            target_country: t.target_country,
-            country_name: country?.name || t.target_country,
-            thrower_country_name: throwerCountry?.name || null,
-            thrower_flag: throwerCountry?.flag || null,
-            object: obj?.emoji || "❓",
-            reason: t.reason,
-            created_at: t.created_at,
-          };
-        });
+      .then(async (data) => {
+        // Batch-resolve all profile names at once
+        const profileIds = data
+          .map((t) => t.target_profile_id)
+          .filter((id): id is string => id !== null);
+        if (profileIds.length > 0) {
+          await resolveProfileNames(profileIds);
+        }
+        const enriched = data.map((t) => enrichThrow(t));
         setThrows(enriched);
       })
-      .catch(() => {
-        // Silently handle initial fetch error
-      })
-      .finally(() => {
-        setIsLoading(false);
-      });
+      .catch(() => {})
+      .finally(() => setIsLoading(false));
 
-    // Subscribe to realtime throws
     unsubscribeRef.current = subscribeToThrows(
-      (newThrow) => {
-        const country = getCountryByCode(newThrow.target_country);
-        const throwerCountry = getCountryByCode(newThrow.thrower_country);
-        const obj = getObjectById(newThrow.object);
-        const entry: ThrowEntry = {
-          id: newThrow.id,
-          player_id: newThrow.guest_id,
-          nickname: newThrow.nickname,
-          thrower_country: newThrow.thrower_country,
-          target_country: newThrow.target_country,
-          country_name: country?.name || newThrow.target_country,
-          thrower_country_name: throwerCountry?.name || null,
-          thrower_flag: throwerCountry?.flag || null,
-          object: obj?.emoji || "❓",
-          reason: newThrow.reason,
-          created_at: newThrow.created_at,
-        };
+      async (newThrow) => {
+        if (newThrow.target_profile_id) {
+          await resolveProfileNames([newThrow.target_profile_id]);
+        }
+        const entry = enrichThrow(newThrow);
         setThrows((prev) => [entry, ...prev].slice(0, 50));
-        // Increment the total badge by 1 for every realtime insert.
-        // We use the functional updater so two events fired in the same
-        // tick still both get counted, regardless of stale closure values.
         setTotalThrows((prevTotal) => (prevTotal == null ? 1 : prevTotal + 1));
       },
       (err) => {
         setRealtimeError("Live connection lost. Reconnecting...");
         console.warn("LiveFeed realtime error:", err);
-        // Clear error after a few seconds
         setTimeout(() => setRealtimeError(null), 5000);
       }
     );
@@ -124,7 +133,6 @@ export function LiveFeed() {
 
   return (
     <div className="bg-white rounded-2xl border border-[#E5E7EB] shadow-[0_4px_20px_rgba(0,0,0,0.04)] flex flex-col h-full overflow-hidden">
-      {/* Header */}
       <div className="shrink-0 flex items-center justify-between px-4 pt-3 pb-2.5 border-b border-gray-100 max-md:border-b-white/10">
         <h3 className="text-xs font-bold text-gray-800 flex items-center gap-2 max-md:text-white/90">
           <span className="relative flex w-2 h-2">
@@ -138,7 +146,6 @@ export function LiveFeed() {
         </span>
       </div>
 
-      {/* Realtime connection status */}
       {realtimeError && (
         <div className="shrink-0 px-4 py-1.5 bg-yellow-50 border-b border-yellow-100">
           <p className="text-[10px] font-medium text-yellow-700 flex items-center gap-1.5">
@@ -148,7 +155,6 @@ export function LiveFeed() {
         </div>
       )}
 
-      {/* Content */}
       <div className="flex-1 overflow-y-auto px-2 py-1.5 space-y-0.5">
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-10">
@@ -170,7 +176,7 @@ export function LiveFeed() {
               <span className="text-2xl">🎯</span>
             </div>
             <p className="text-sm font-semibold text-gray-800">No throws yet</p>
-            <p className="text-xs text-gray-500 mt-1">Click a country and throw something!</p>
+            <p className="text-xs text-gray-500 mt-1">Select a profile and throw something!</p>
           </div>
         ) : (
           <AnimatePresence initial={false}>
@@ -182,27 +188,19 @@ export function LiveFeed() {
                 transition={{ delay: Math.min(i * 0.015, 0.25) }}
                 className={`feed-entry flex gap-2.5 p-2 ${entry.reason ? "items-start" : "items-center"}`}
               >
-                {/* Flag (or fallback initial avatar) */}
-                {entry.thrower_flag ? (
-                  <span
-                    className="shrink-0 text-[28px] leading-none mr-0.5 select-none"
-                    aria-hidden="true"
-                  >
-                    {entry.thrower_flag}
-                  </span>
-                ) : (
-                  <span className="shrink-0 w-7 h-7 rounded-xl bg-gradient-to-br from-orange-500 to-pink-500 text-white text-[11px] font-bold flex items-center justify-center mr-0.5">
-                    {entry.nickname.charAt(0).toUpperCase()}
-                  </span>
-                )}
+                {/* Thrower initial avatar */}
+                <span className="shrink-0 w-7 h-7 rounded-xl bg-gradient-to-br from-orange-500 to-pink-500 text-white text-[11px] font-bold flex items-center justify-center mr-0.5">
+                  {entry.nickname.charAt(0).toUpperCase()}
+                </span>
 
-                {/* Content */}
                 <div className="flex-1 min-w-0">
                   <p className="text-xs leading-snug text-gray-800 max-md:text-white/85">
                     <span className="font-bold text-orange-500">{entry.nickname}</span>
                     <span className="mx-1.5 text-base leading-none">{entry.object}</span>
                     <span className="text-gray-300">→</span>
-                    <span className="ml-1 font-semibold">{entry.country_name}</span>
+                    <span className="ml-1 font-semibold">
+                      {entry.target_profile_name || entry.target_profile_id || "someone"}
+                    </span>
                   </p>
                   {entry.reason && (
                     <p className="text-[10px] text-gray-500 italic mt-1 truncate max-md:text-white/50">
@@ -211,7 +209,6 @@ export function LiveFeed() {
                   )}
                 </div>
 
-                {/* Time */}
                 <span className={`text-[9px] text-gray-400 font-medium shrink-0 ${entry.reason ? "mt-0.5" : ""} max-md:text-white/40`}>
                   {formatRelativeTime(entry.created_at)}
                 </span>
