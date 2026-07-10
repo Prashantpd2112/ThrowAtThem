@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { COUNTRIES } from "@/data/countries";
 import { CountryPicker } from "@/components/ui/CountryPicker";
 import type { CountryOption } from "@/components/ui/CountryPicker";
+import { ImageCropper } from "@/components/ui/ImageCropper";
 
 interface CreateProfileModalProps {
   isOpen: boolean;
@@ -49,6 +50,11 @@ export function CreateProfileModal({ isOpen, onClose, onSubmit, isSubmitting }: 
   const [profession, setProfession] = useState("");
   const [country, setCountry] = useState("");
   const [showCountryPicker, setShowCountryPicker] = useState(false);
+
+  // Crop modal state
+  const [showCropModal, setShowCropModal] = useState(false);
+  const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
 
   // File upload state
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -96,9 +102,51 @@ export function CreateProfileModal({ isOpen, onClose, onSubmit, isSubmitting }: 
       return;
     }
 
-    setSelectedFile(file);
+    // Open crop modal instead of directly showing preview
+    setPendingFile(file);
     const objectUrl = URL.createObjectURL(file);
+    setCropImageSrc(objectUrl);
+    setShowCropModal(true);
+  };
+
+  const handleCropComplete = (croppedBlob: Blob) => {
+    const originalName = pendingFile?.name || "profile-image.png";
+    const croppedFile = new File(
+      [croppedBlob],
+      originalName.replace(/\.[^.]+$/, "") + ".png",
+      { type: "image/png" }
+    );
+
+    // Clean up old preview
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+    }
+
+    const objectUrl = URL.createObjectURL(croppedFile);
+    setSelectedFile(croppedFile);
     setPreviewUrl(objectUrl);
+    setShowCropModal(false);
+    setCropImageSrc(null);
+    setPendingFile(null);
+
+    // Reset file input so the same file can trigger onChange again
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const handleCancelCrop = () => {
+    if (cropImageSrc) {
+      URL.revokeObjectURL(cropImageSrc);
+    }
+    setCropImageSrc(null);
+    setShowCropModal(false);
+    setPendingFile(null);
+
+    // Reset file input so the same file can be selected again
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
   };
 
   const handleRemoveImage = () => {
@@ -376,6 +424,15 @@ export function CreateProfileModal({ isOpen, onClose, onSubmit, isSubmitting }: 
           onSelect={handleCountrySelect}
           selectedCode={country}
         />
+
+        {/* Image Crop Modal */}
+        {showCropModal && cropImageSrc && (
+          <ImageCropper
+            imageSrc={cropImageSrc}
+            onCropComplete={handleCropComplete}
+            onCancel={handleCancelCrop}
+          />
+        )}
       </motion.div>
     </div>
   );
