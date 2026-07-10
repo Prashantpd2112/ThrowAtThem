@@ -511,11 +511,13 @@ function createMockSupabase(): SupabaseClient {
   });
 }
 
+const PROFILE_BUCKET = "Profiles";
+
 // ── Storage Operations ──
 
 /**
  * Uploads a profile image to Supabase Storage.
- * Stores in `Profile/{uuid}.{ext}` bucket.
+ * Stores in `Profiles/{uuid}.{ext}` bucket.
  * Returns the public URL of the uploaded image.
  */
 export const uploadProfileImage = async (
@@ -526,7 +528,7 @@ export const uploadProfileImage = async (
   
   // Log debug info
   console.log('[uploadProfileImage] Supabase URL:', supabaseUrl ? supabaseUrl.substring(0, 30) + '...' : 'NOT SET');
-  console.log('[uploadProfileImage] Target bucket: Profile');
+  console.log('[uploadProfileImage] Target bucket:', PROFILE_BUCKET);
   
   // Validate file type
   const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/avif", "image/heic", "image/svg+xml"];
@@ -540,15 +542,15 @@ export const uploadProfileImage = async (
     throw new Error("Image must be under 10 MB.");
   }
 
-  // Generate unique filename (no bucket prefix — .from("Profile") already specifies the bucket)
+  // Generate unique filename (no bucket prefix — .from(PROFILE_BUCKET) already specifies the bucket)
   const ext = file.name.split(".").pop() || "jpg";
   const fileName = `${guestId}-${Date.now()}.${ext}`;
 
   console.log('[uploadProfileImage] File name:', fileName, '| File type:', file.type, '| File size:', file.size);
 
-  // Upload to Supabase Storage bucket "Profile"
+  // Upload to Supabase Storage bucket "Profiles"
   const { data, error } = await client.storage
-    .from("Profile")
+    .from(PROFILE_BUCKET)
     .upload(fileName, file, {
       cacheControl: "3600",
       upsert: false,
@@ -563,7 +565,7 @@ export const uploadProfileImage = async (
 
   // Get public URL
   const { data: urlData } = client.storage
-    .from("Profile")
+    .from(PROFILE_BUCKET)
     .getPublicUrl(fileName);
 
   console.log('[uploadProfileImage] Public URL:', urlData.publicUrl);
@@ -579,14 +581,14 @@ export const deleteProfileImage = async (publicUrl: string): Promise<void> => {
   const client = getClient();
 
   // Extract the file path from the public URL
-  // URL format: /storage/v1/object/public/Profile/{filepath}
-  const urlParts = publicUrl.split("/public/Profile/");
+  // URL format: /storage/v1/object/public/Profiles/{filepath}
+  const urlParts = publicUrl.split(`/public/${PROFILE_BUCKET}/`);
   if (urlParts.length < 2) return; // Not a storage URL, skip
 
   const filePath = urlParts[1];
 
   const { error } = await client.storage
-    .from("Profile")
+    .from(PROFILE_BUCKET)
     .remove([filePath]);
 
   if (error) {
