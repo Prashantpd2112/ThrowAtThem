@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { preloadSounds, playImpactSound } from "@/lib/sounds";
 
 interface Particle {
   id: string;
@@ -21,6 +22,7 @@ interface ThrowAnimationData {
   particleColor: string;
   startX: number;
   startY: number;
+  objectId: string;
 }
 
 export function ThrowAnimation() {
@@ -45,10 +47,15 @@ export function ThrowAnimation() {
     }, 800);
   }, []);
 
+  // Pre-load all sounds on mount so they are ready for instant playback
+  useEffect(() => {
+    preloadSounds();
+  }, []);
+
   // Listen for throw events
   useEffect(() => {
     const handleThrow = (e: CustomEvent) => {
-      const { emoji, targetX, targetY, particleColor, startX, startY } = e.detail;
+      const { emoji, targetX, targetY, particleColor, startX, startY, objectId } = e.detail;
       const anim: ThrowAnimationData = {
         id: `throw-${Date.now()}`,
         emoji,
@@ -57,6 +64,7 @@ export function ThrowAnimation() {
         particleColor,
         startX,
         startY,
+        objectId,
       };
       setAnimations((prev) => [...prev, anim]);
 
@@ -64,6 +72,7 @@ export function ThrowAnimation() {
       setTimeout(() => {
         setImpacts((prev) => [...prev, { id: `impact-${Date.now()}`, x: targetX, y: targetY }]);
         spawnParticles(targetX, targetY, particleColor);
+        playImpactSound(anim.objectId);
         // Clean up impact
         setTimeout(() => {
           setImpacts((prev) => prev.filter((i) => i.id !== `impact-${Date.now()}`));
@@ -165,10 +174,11 @@ export function triggerThrowAnimation(
   startY: number,
   targetX: number,
   targetY: number,
-  particleColor: string
+  particleColor: string,
+  objectId?: string
 ) {
   const event = new CustomEvent("ThrowAtThem-throw", {
-    detail: { emoji, startX, startY, targetX, targetY, particleColor },
+    detail: { emoji, startX, startY, targetX, targetY, particleColor, objectId },
   });
   window.dispatchEvent(event);
 }

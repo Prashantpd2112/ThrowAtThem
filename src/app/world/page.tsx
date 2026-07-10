@@ -712,7 +712,7 @@ export default function WorldPage() {
       // Fire animation immediately
       const obj = getObjectById(objectId);
       if (obj) {
-        triggerThrowAnimation(obj.emoji, startX, startY, targetX, targetY, obj.particleColor);
+        triggerThrowAnimation(obj.emoji, startX, startY, targetX, targetY, obj.particleColor, objectId);
       }
 
       // Clear reason so the user can type a new one
