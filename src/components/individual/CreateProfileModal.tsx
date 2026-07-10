@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
 import { COUNTRIES } from "@/data/countries";
 import { CountryPicker } from "@/components/ui/CountryPicker";
@@ -75,6 +75,30 @@ export function CreateProfileModal({ isOpen, onClose, onSubmit, isSubmitting }: 
       setImageUrlError("This URL points to a webpage, not an image. Please paste a direct image URL (.jpg, .png, .webp).");
     }
   };
+
+  // Reset form fields whenever modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setNickname("");
+      setProfession("");
+      setCountry("");
+      setShowCountryPicker(false);
+      setImageUrl("");
+      setImageUrlStatus("idle");
+      setImageUrlError(null);
+      // Revoke old preview URL to prevent memory leaks
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+      setSelectedFile(null);
+      setPreviewUrl(null);
+      setUploadError(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -176,6 +200,14 @@ export function CreateProfileModal({ isOpen, onClose, onSubmit, isSubmitting }: 
       country,
       profile_file: selectedFile,
     });
+
+    // Clean up crop state if any
+    if (cropImageSrc) {
+      URL.revokeObjectURL(cropImageSrc);
+    }
+    setCropImageSrc(null);
+    setShowCropModal(false);
+    setPendingFile(null);
   };
 
   const handleCountrySelect = (option: CountryOption) => {
