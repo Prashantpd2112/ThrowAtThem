@@ -41,8 +41,8 @@ export function GuestPopup({ isOpen, onClose, onEnter }: GuestPopupProps) {
           transition={{ delay: 0.1 }}
         >
           <div className="text-5xl mb-4">🌍</div>
-          <h2 className="text-2xl md:text-3xl font-bold mb-2" style={{ fontFamily: "'Fredoka', cursive" }}>
-            Welcome to WorldThrow!
+          <h2 className="text-2xl md:text-3xl font-bold mb-2 text-white" style={{ fontFamily: "'Fredoka', cursive" }}>
+            Welcome to ThrowOnThem!
           </h2>
           <p className="text-gray-600 dark:text-gray-400 mb-6 text-sm">
             Choose your name and country, then jump into the fun!
@@ -150,7 +150,7 @@ export function GuestPopup({ isOpen, onClose, onEnter }: GuestPopupProps) {
                 Entering...
               </span>
             ) : (
-              "🌍 Enter the World!"
+              "Let's Throw"
             )}
           </Button>
         </motion.div>

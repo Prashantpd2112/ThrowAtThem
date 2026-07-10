@@ -1,5 +1,5 @@
 -- ──────────────────────────────────────────────────────────────
--- WorldThrow Migration 002: Individual Profiles + Profile Throws
+-- ThrowOnThen Migration 002: Individual Profiles + Profile Throws
 -- ──────────────────────────────────────────────────────────────
 -- Creates the individual_profiles table for storing globally visible
 -- user profiles, and adds target_profile_id to the throws table so

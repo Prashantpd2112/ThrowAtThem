@@ -41,7 +41,7 @@ export function HeroSection({ onEnterClick }: HeroSectionProps) {
           transition={{ duration: 0.8, delay: 0.3 }}
         >
           <span className="bg-gradient-to-r from-wt-orange via-wt-pink to-wt-purple bg-clip-text text-transparent">
-            WorldThrow
+            ThrowOnThem
           </span>
         </motion.h1>
 
@@ -52,7 +52,7 @@ export function HeroSection({ onEnterClick }: HeroSectionProps) {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.5 }}
         >
-          Throw silly things at countries around the world! 
+          Every annoying person deserves a virtual tomato.
           <span className="block mt-1 text-sm text-gray-500 dark:text-gray-400">No signup. No login. Just fun.</span>
         </motion.p>
 
@@ -70,7 +70,7 @@ export function HeroSection({ onEnterClick }: HeroSectionProps) {
           onClick={onEnterClick}
         >
           <span className="relative z-10 flex items-center gap-3">
-            🌍 Enter the World
+            Let's Throw
             <motion.span
               animate={{ x: [0, 5, 0] }}
               transition={{ duration: 1.5, repeat: Infinity }}

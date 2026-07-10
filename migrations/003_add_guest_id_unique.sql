@@ -1,5 +1,5 @@
 -- ──────────────────────────────────────────────────────────────
--- WorldThrow Migration 003: One Profile Per Guest
+-- ThrowOnThen Migration 003: One Profile Per Guest
 -- ──────────────────────────────────────────────────────────────
 -- 1. Removes duplicate profiles for the same guest_id (keeps oldest)
 -- 2. Reassigns throws from deleted duplicates to the kept profile

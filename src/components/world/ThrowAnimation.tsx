@@ -76,8 +76,8 @@ export function ThrowAnimation() {
       }, 1500);
     };
 
-    window.addEventListener("worldthrow-throw", handleThrow as EventListener);
-    return () => window.removeEventListener("worldthrow-throw", handleThrow as EventListener);
+    window.addEventListener("throwonthem-throw", handleThrow as EventListener);
+    return () => window.removeEventListener("throwonthem-throw", handleThrow as EventListener);
   }, [spawnParticles]);
 
   return (
@@ -167,7 +167,7 @@ export function triggerThrowAnimation(
   targetY: number,
   particleColor: string
 ) {
-  const event = new CustomEvent("worldthrow-throw", {
+  const event = new CustomEvent("throwonthem-throw", {
     detail: { emoji, startX, startY, targetX, targetY, particleColor },
   });
   window.dispatchEvent(event);

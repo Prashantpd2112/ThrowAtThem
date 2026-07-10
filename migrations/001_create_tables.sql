@@ -1,4 +1,4 @@
--- ── WorldThrow Database Schema Migration ──
+-- ── ThrowOnThen Database Schema Migration ──
 -- Run this SQL in your Supabase project SQL editor
 -- or via: psql -d your-connection-string -f migrations/001_create_tables.sql
 

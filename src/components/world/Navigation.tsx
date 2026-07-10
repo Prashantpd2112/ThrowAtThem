@@ -54,7 +54,7 @@ export function Navigation({
                 className="text-[15px] font-bold bg-gradient-to-r from-orange-500 to-pink-500 bg-clip-text text-transparent"
                 style={{ fontFamily: "'Fredoka', cursive" }}
               >
-                WorldThrow
+                ThrowOnThem
               </span>
               <span className="text-[10px] font-medium text-gray-500 -mt-0.5">
                 Throw fun at the world

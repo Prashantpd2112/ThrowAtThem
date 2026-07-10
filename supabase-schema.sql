@@ -1,5 +1,5 @@
 -- ──────────────────────────────────────────────────────────────
--- WorldThrow — Idempotent Database Schema
+-- ThrowOnThen — Idempotent Database Schema
 -- Safe to run on any existing production database.
 -- Runs DO $$ blocks with existence checks everywhere.
 -- Produces zero PostgreSQL errors no matter how many times executed.

@@ -3,12 +3,12 @@ import "./globals.css";
 import { Providers } from "./providers";
 
 export const metadata: Metadata = {
-  title: "WorldThrow - Throw Fun at the World!",
+  title: "ThrowOnThem - Throw Fun at the World!",
   description:
     "A fun cartoon world where you can anonymously throw silly objects at countries around the globe. No signup needed!",
   keywords: ["world throw", "fun", "game", "cartoon", "anonymous", "entertainment"],
   openGraph: {
-    title: "WorldThrow - Throw Fun at the World!",
+    title: "ThrowOnThem - Throw Fun at the World!",
     description:
       "A fun cartoon world where you can anonymously throw silly objects at countries around the globe.",
     type: "website",
