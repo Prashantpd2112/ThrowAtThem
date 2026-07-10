@@ -531,9 +531,9 @@ export const uploadProfileImage = async (
   console.log('[uploadProfileImage] Target bucket:', PROFILE_BUCKET);
   
   // Validate file type
-  const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/avif", "image/heic", "image/svg+xml"];
+  const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/avif", "image/heic"];
   if (!allowedTypes.includes(file.type)) {
-    throw new Error("Unsupported file type. Allowed: jpg, png, webp, gif, avif, heic, svg");
+    throw new Error("Unsupported file type. Allowed: jpg, png, webp, gif, avif, heic");
   }
 
   // Validate file size (10MB max)

@@ -379,6 +379,25 @@ BEGIN
 END $$;
 
 -- ══════════════════════════════════════════════════════════════
+-- ⚠️ STORAGE BUCKET SECURITY (CRITICAL — Run in Supabase Dashboard SQL Editor)
+-- ══════════════════════════════════════════════════════════════
+-- The "Profiles" storage bucket has NO Row Level Security policies defined.
+-- Anyone with the Supabase anon key can upload/delete files.
+-- Run the following SQL in your Supabase Dashboard → SQL Editor:
+--
+--   -- Allow public read access to the Profiles bucket
+--   CREATE POLICY "Public read Profiles" ON storage.objects
+--     FOR SELECT USING (bucket_id = 'Profiles');
+--
+--   -- Allow public upload access to the Profiles bucket
+--   CREATE POLICY "Public upload Profiles" ON storage.objects
+--     FOR INSERT WITH CHECK (bucket_id = 'Profiles');
+--
+-- IMPORTANT: Make sure your "Profiles" bucket exists and is set to "public"
+-- in the Supabase Dashboard → Storage → Profiles → Configuration.
+-- ══════════════════════════════════════════════════════════════
+
+-- ══════════════════════════════════════════════════════════════
 -- 6. VERIFICATION QUERIES
 -- ══════════════════════════════════════════════════════════════
 

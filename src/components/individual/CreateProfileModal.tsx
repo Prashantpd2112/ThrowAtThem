@@ -28,7 +28,6 @@ const ACCEPTED_TYPES = [
   "image/gif",
   "image/avif",
   "image/heic",
-  "image/svg+xml",
 ];
 
 const MAX_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
@@ -76,9 +75,10 @@ export function CreateProfileModal({ isOpen, onClose, onSubmit, isSubmitting }: 
     }
   };
 
-  // Reset form fields whenever modal opens
+  // Reset form fields whenever modal opens; clean up blob URLs when it closes
   useEffect(() => {
     if (isOpen) {
+      // ── Opening: reset all form fields for a fresh session ──
       setNickname("");
       setProfession("");
       setCountry("");
@@ -86,7 +86,7 @@ export function CreateProfileModal({ isOpen, onClose, onSubmit, isSubmitting }: 
       setImageUrl("");
       setImageUrlStatus("idle");
       setImageUrlError(null);
-      // Revoke old preview URL to prevent memory leaks
+      // Revoke old preview URL from a previous session to prevent memory leaks
       if (previewUrl) {
         URL.revokeObjectURL(previewUrl);
       }
@@ -96,6 +96,19 @@ export function CreateProfileModal({ isOpen, onClose, onSubmit, isSubmitting }: 
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
+    } else {
+      // ── Closing: clean up blob URLs (img tag already removed from DOM) ──
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+      setPreviewUrl(null);
+      setSelectedFile(null);
+      if (cropImageSrc) {
+        URL.revokeObjectURL(cropImageSrc);
+      }
+      setCropImageSrc(null);
+      setShowCropModal(false);
+      setPendingFile(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
@@ -113,7 +126,7 @@ export function CreateProfileModal({ isOpen, onClose, onSubmit, isSubmitting }: 
     setImageUrlError(null);
 
     if (!ACCEPTED_TYPES.includes(file.type)) {
-      setUploadError("Unsupported file type. Allowed: jpg, png, webp, gif, avif, heic, svg");
+      setUploadError("Unsupported file type. Allowed: jpg, png, webp, gif, avif, heic");
       setSelectedFile(null);
       setPreviewUrl(null);
       return;
@@ -288,7 +301,7 @@ export function CreateProfileModal({ isOpen, onClose, onSubmit, isSubmitting }: 
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/jpeg,image/jpg,image/png,image/webp,image/gif,image/avif,image/heic,image/svg+xml"
+                accept="image/jpeg,image/jpg,image/png,image/webp,image/gif,image/avif,image/heic"
                 onChange={handleFileSelect}
                 className="hidden"
                 id="profile-image-input"
