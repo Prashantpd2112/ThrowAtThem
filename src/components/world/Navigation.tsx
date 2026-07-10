@@ -1,7 +1,6 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Globe3D } from "@/components/landing/Globe3D";
 import { SearchBar } from "@/components/world/SearchBar";
 
 interface NavigationProps {
@@ -46,8 +45,8 @@ export function Navigation({
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
           >
-            <div className="w-9 h-9 shrink-0 overflow-hidden rounded-full">
-              <Globe3D />
+            <div className="w-9 h-9 shrink-0 overflow-hidden rounded-full flex items-center justify-center bg-gradient-to-br from-orange-400 to-pink-500 shadow-sm">
+              <span className="text-white text-base leading-none">🌍</span>
             </div>
             <div className="flex flex-col leading-tight max-md:hidden">
               <span

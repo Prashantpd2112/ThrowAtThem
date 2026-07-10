@@ -83,52 +83,6 @@ export function HeroSection({ onEnterClick }: HeroSectionProps) {
         </motion.button>
         </div>
 
-        {/* Floating Objects — all below Earth's center line, clean upper sky */}
-        <div className="absolute inset-0 pointer-events-none overflow-hidden">
-          {[
-            // Left side — distributed evenly in lower half
-            { emoji: "🎨", left: 6, top: 54, dur: 4.5, del: 0 },
-            { emoji: "🍅", left: 4, top: 60, dur: 5, del: 0.5 },
-            { emoji: "🍩", left: 12, top: 66, dur: 6, del: 1.0 },
-            { emoji: "🧻", left: 3, top: 74, dur: 6.5, del: 0.3 },
-            { emoji: "🐟", left: 9, top: 80, dur: 6, del: 1.8 },
-            { emoji: "🖋", left: 14, top: 87, dur: 4.8, del: 0.5 },
-
-            // Right side — distributed evenly in lower half
-            { emoji: "❄", left: 93, top: 53, dur: 4, del: 1.5 },
-            { emoji: "🎯", left: 83, top: 58, dur: 5.5, del: 2 },
-            { emoji: "🪁", left: 76, top: 64, dur: 5, del: 0.2 },
-            { emoji: "🥚", left: 90, top: 70, dur: 6, del: 1.2 },
-            { emoji: "🦆", left: 88, top: 77, dur: 7, del: 0.8 },
-            { emoji: "⚡", left: 80, top: 83, dur: 4.5, del: 0.7 },
-            { emoji: "🧀", left: 85, top: 90, dur: 5.5, del: 2 },
-          ].map((item) => (
-            <motion.div
-              key={item.emoji}
-              className="absolute text-3xl md:text-4xl"
-              style={{
-                left: `${item.left}%`,
-                top: `${item.top}%`,
-                ...(item.emoji === "❄"
-                  ? { filter: "drop-shadow(0 0 8px #BFE9FF) brightness(1.4) saturate(0.7)" }
-                  : {}),
-              }}
-              animate={{
-                y: [0, -30, 0],
-                rotate: [0, 360, 0],
-              }}
-              transition={{
-                duration: item.dur,
-                repeat: Infinity,
-                delay: item.del,
-                ease: "easeInOut",
-              }}
-            >
-              {item.emoji}
-            </motion.div>
-          ))}
-        </div>
-
         {/* Scroll indicator removed per UX requirement */}
       </div>
     </div>

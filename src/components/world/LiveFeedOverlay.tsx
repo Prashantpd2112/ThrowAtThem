@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { fetchRecentThrows, subscribeToThrows, supabase } from "@/lib/supabase";
 import { getObjectById } from "@/data/objects";
+import { getFlagEmoji } from "@/hooks/useProfiles";
 
 // ── Types ──
 interface LiveEvent {
@@ -12,6 +13,7 @@ interface LiveEvent {
   object: string;
   targetName: string;
   reason: string;
+  throwerCountry: string;
 }
 
 // ── Profile name cache ──
@@ -117,6 +119,7 @@ export function LiveFeedOverlay({
             ? getCachedProfileName(t.target_profile_id) || t.target_profile_id.substring(0, 8)
             : "someone",
           reason: t.reason,
+          throwerCountry: t.thrower_country,
         }));
         setEvents(loaded.reverse());
       })
@@ -136,6 +139,7 @@ export function LiveFeedOverlay({
             ? getCachedProfileName(newThrow.target_profile_id) || newThrow.target_profile_id.substring(0, 8)
             : "someone",
           reason: newThrow.reason,
+          throwerCountry: newThrow.thrower_country,
         };
         setEvents((prev) => {
           const next = [...prev, entry];
@@ -192,7 +196,7 @@ export function LiveFeedOverlay({
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: "100%", opacity: 0 }}
           transition={{ duration: 0.25, ease: "easeOut" }}
-          className="absolute left-0 right-0 bottom-0 z-30 overflow-hidden pointer-events-none"
+          className="absolute inset-0 z-30 overflow-hidden pointer-events-none"
         >
           {/* Scrollable feed — stops above the Live button area so button stays clickable */}
           <div
@@ -230,26 +234,28 @@ export function LiveFeedOverlay({
                         animate={{ opacity: op, x: 0 }}
                         exit={{ opacity: 0, x: 8, transition: { duration: 0.3 } }}
                         transition={{ duration: 0.25, ease: "easeOut" }}
-                        className="flex items-start gap-2 py-0.5"
+                        className="flex items-start gap-2 pb-0 mb-3"
                         style={{ opacity: op }}
                       >
-                        {/* Green dot */}
-                        <span className="shrink-0 mt-px relative flex w-1.5 h-1.5">
-                          <span className="absolute inline-flex w-full h-full rounded-full bg-green-400 opacity-70 animate-ping" />
-                          <span className="relative inline-flex w-1.5 h-1.5 rounded-full bg-green-500" />
+                        {/* Country flag */}
+                        <span className="shrink-0 text-lg leading-none mt-0.5 w-6 text-center">
+                          {evt.throwerCountry ? getFlagEmoji(evt.throwerCountry) : ""}
                         </span>
 
-                        {/* Username */}
-                        <span className="shrink-0 text-[13px] font-bold leading-snug text-white">
-                          {evt.nickname}
-                        </span>
-
-                        {/* Action */}
-                        <span className="text-[13px] leading-snug truncate min-w-0 text-white">
-                          Threw {evt.object}
-                          <span className="text-white/30 mx-1">→</span>
-                          <span className="font-semibold text-white/80">{evt.targetName}</span>
-                        </span>
+                        {/* Text column — reason indents under the username */}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[13px] leading-snug text-white">
+                            <span className="font-bold">{evt.nickname}</span>
+                            <span className="mx-1 text-base leading-none">{evt.object}</span>
+                            <span className="text-white/30 mx-1">→</span>
+                            <span className="font-semibold text-white/80">{evt.targetName}</span>
+                          </p>
+                          {evt.reason && (
+                            <p className="text-[11px] leading-snug text-white/45 mt-1">
+                              {evt.reason}
+                            </p>
+                          )}
+                        </div>
                       </motion.div>
                     );
                   })}

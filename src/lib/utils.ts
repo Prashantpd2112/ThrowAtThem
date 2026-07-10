@@ -35,30 +35,8 @@ export const formatRelativeTime = (dateStr: string): string => {
   return `${diffDay}d ago`;
 };
 
-export const getHeatColor = (level: number, max: number): string => {
-  if (max === 0) return "#e8f5e9"; // light green - no activity
-  const ratio = level / max;
-  if (ratio < 0.25) return "#c8e6c9";
-  if (ratio < 0.5) return "#ffeb3b";
-  if (ratio < 0.75) return "#ff9800";
-  return "#f44336";
-};
-
-export const getActivityLevel = (count: number, max: number): "low" | "medium" | "high" | "very_high" => {
-  if (max === 0) return "low";
-  const ratio = count / max;
-  if (ratio < 0.25) return "low";
-  if (ratio < 0.5) return "medium";
-  if (ratio < 0.75) return "high";
-  return "very_high";
-};
-
 export const cn = (...classes: (string | boolean | undefined | null)[]): string => {
   return classes.filter(Boolean).join(" ");
-};
-
-export const sleep = (ms: number): Promise<void> => {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 };
 
 export const getLocalStorage = <T>(key: string, defaultValue: T): T => {

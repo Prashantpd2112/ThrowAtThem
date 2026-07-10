@@ -6,6 +6,7 @@ import { ThrowEntry } from "@/lib/types";
 import { formatRelativeTime } from "@/lib/utils";
 import { fetchRecentThrows, subscribeToThrows, isSupabaseConfigured, fetchTotalThrowCount, supabase } from "@/lib/supabase";
 import { getObjectById } from "@/data/objects";
+import { getFlagEmoji } from "@/hooks/useProfiles";
 
 // Compact number formatter: 845 -> "845", 1250 -> "1.2K", 12500 -> "12.5K",
 // 1250000 -> "1.2M", etc. Keeps one decimal when below 10× the next unit.
@@ -186,25 +187,25 @@ export function LiveFeed() {
                 initial={{ opacity: 0, x: -8 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: Math.min(i * 0.015, 0.25) }}
-                className={`feed-entry flex gap-2.5 p-2 ${entry.reason ? "items-start" : "items-center"}`}
+                className={`feed-entry flex gap-2.5 p-2 mb-1 ${entry.reason ? "items-start" : "items-center"}`}
               >
-                {/* Thrower initial avatar */}
-                <span className="shrink-0 w-7 h-7 rounded-xl bg-gradient-to-br from-orange-500 to-pink-500 text-white text-[11px] font-bold flex items-center justify-center mr-0.5">
-                  {entry.nickname.charAt(0).toUpperCase()}
+                {/* Thrower country flag */}
+                <span className="shrink-0 text-lg leading-none mt-0.5 w-6 text-center">
+                  {entry.thrower_country ? getFlagEmoji(entry.thrower_country) : ""}
                 </span>
 
                 <div className="flex-1 min-w-0">
                   <p className="text-xs leading-snug text-gray-800 max-md:text-white/85">
                     <span className="font-bold text-orange-500">{entry.nickname}</span>
                     <span className="mx-1.5 text-base leading-none">{entry.object}</span>
-                    <span className="text-gray-300">→</span>
+                    <span className="text-gray-400">→</span>
                     <span className="ml-1 font-semibold">
                       {entry.target_profile_name || entry.target_profile_id || "someone"}
                     </span>
                   </p>
                   {entry.reason && (
-                    <p className="text-[10px] text-gray-500 italic mt-1 truncate max-md:text-white/50">
-                      &ldquo;{entry.reason}&rdquo;
+                    <p className="text-[10px] text-gray-500 mt-0.5 leading-relaxed max-md:text-white/50">
+                      {entry.reason}
                     </p>
                   )}
                 </div>
