@@ -41,7 +41,7 @@ export function HeroSection({ onEnterClick }: HeroSectionProps) {
           transition={{ duration: 0.8, delay: 0.3 }}
         >
           <span className="bg-gradient-to-r from-wt-orange via-wt-pink to-wt-purple bg-clip-text text-transparent">
-            ThrowOnThem
+            ThrowAtThem
           </span>
         </motion.h1>
 
