@@ -1,6 +1,6 @@
 # 🍅 ThrowAtThem
 
-A fun, cartoon-style world where anyone can anonymously throw silly objects at countries around the globe. No login, no signup — just pure entertainment!
+Create a funny profile, roast your friends, and throw virtual emojis, tomatoes, and hilarious objects at anyone. No signup. No login. Just fun.
 
 ## ✨ Features
 

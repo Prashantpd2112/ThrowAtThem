@@ -1,7 +1,8 @@
 "use client";
 
+import EmojiPicker, { Theme, EmojiStyle, EmojiClickData, SuggestionMode } from "emoji-picker-react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useEffect, useRef, useState } from "react";
 
 interface EmojiPickerModalProps {
   isOpen: boolean;
@@ -9,164 +10,132 @@ interface EmojiPickerModalProps {
   onEmojiSelect: (emoji: string) => void;
 }
 
-/**
- * Simple emoji input that opens the phone's native emoji keyboard
- * on mobile, or lets desktop users paste/type an emoji character.
- */
 export function EmojiPickerModal({ isOpen, onClose, onEmojiSelect }: EmojiPickerModalProps) {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [previewEmoji, setPreviewEmoji] = useState<string | null>(null);
+  const [anchorStyle, setAnchorStyle] = useState<React.CSSProperties>({});
+  const [isMobile, setIsMobile] = useState(false);
+  const pickerContainerRef = useRef<HTMLDivElement>(null);
 
-  // Auto-focus the input when modal opens
+  // Measure and position the picker when it opens
   useEffect(() => {
-    if (isOpen) {
-      setPreviewEmoji(null);
-      const t = setTimeout(() => {
-        inputRef.current?.focus();
-      }, 100);
-      return () => clearTimeout(t);
+    if (!isOpen) return;
+
+    const checkMobile = () => window.innerWidth < 768;
+    setIsMobile(checkMobile());
+
+    // Find the "+" button and position the picker relative to it
+    const addBtn = document.querySelector('[aria-label="Add a custom emoji"]');
+    if (addBtn) {
+      const rect = addBtn.getBoundingClientRect();
+      const pickerWidth = 350;
+
+      if (checkMobile()) {
+        // On mobile, we use a bottom-anchored layout (handled in the render)
+        setAnchorStyle({});
+        return;
+      }
+
+      // Desktop: position anchored near the button
+      const gap = 8;
+      const pickerHeight = 400;
+      const spaceAbove = rect.top;
+      const spaceBelow = window.innerHeight - rect.bottom;
+
+      let top: number;
+      if (spaceAbove > pickerHeight + gap) {
+        // Position above the button if enough room
+        top = rect.top - pickerHeight - gap;
+      } else {
+        // Otherwise position below
+        top = rect.bottom + gap;
+      }
+
+      // Clamp to viewport bounds
+      top = Math.max(8, Math.min(top, window.innerHeight - pickerHeight - 8));
+
+      // Center horizontally under the button, clamp to viewport edges
+      let left = rect.left + rect.width / 2 - pickerWidth / 2;
+      left = Math.max(8, Math.min(left, window.innerWidth - pickerWidth - 8));
+
+      setAnchorStyle({
+        position: "fixed",
+        top,
+        left,
+        zIndex: 110,
+      });
     }
-  }, [isOpen]);
 
-  // Close on ESC
-  useEffect(() => {
+    // Handle Escape key
     const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        onClose();
+      }
     };
-    if (isOpen) {
-      window.addEventListener("keydown", handleEsc);
-    }
+    window.addEventListener("keydown", handleEsc);
     return () => window.removeEventListener("keydown", handleEsc);
   }, [isOpen, onClose]);
 
-  // Prevent body scroll when open
-  useEffect(() => {
-    if (!isOpen) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, [isOpen]);
-
-  /** Extract the last emoji from a string — matches all Unicode emoji sequences. */
-  const extractEmoji = (text: string): string | null => {
-    // Match emoji sequences (including skin tones, flags, ZWJ, keycaps)
-    const emojiRegex = /\p{Emoji}/gu;
-    const matches = text.match(emojiRegex);
-    if (matches && matches.length > 0) {
-      return matches[matches.length - 1];
-    }
-    return null;
-  };
-
-  const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    if (!value) {
-      setPreviewEmoji(null);
-      return;
-    }
-    const emoji = extractEmoji(value);
-    if (emoji) {
-      setPreviewEmoji(emoji);
-      onEmojiSelect(emoji);
+  const handleEmojiClick = useCallback(
+    (emojiData: EmojiClickData) => {
+      onEmojiSelect(emojiData.emoji);
       onClose();
-    }
-  };
-
-  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
-    const pasted = e.clipboardData.getData("text");
-    const emoji = extractEmoji(pasted);
-    if (emoji) {
-      e.preventDefault();
-      onEmojiSelect(emoji);
-    }
-  };
+    },
+    [onEmojiSelect, onClose]
+  );
 
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-6">
-          {/* Backdrop */}
+        <div className="fixed inset-0 z-[100]">
+          {/* Invisible backdrop — captures clicks outside the picker */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            transition={{ duration: 0.15 }}
+            className="absolute inset-0"
             onClick={onClose}
             aria-hidden="true"
           />
 
-          {/* Modal */}
+          {/* Picker container — positioned near the "+" button (desktop) or bottom (mobile) */}
           <motion.div
-            role="dialog"
-            aria-modal="true"
-            aria-label="Choose an emoji"
-            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            ref={pickerContainerRef}
+            initial={{ opacity: 0, scale: 0.95, y: -8 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.9, y: 20 }}
-            transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="relative z-10"
+            exit={{ opacity: 0, scale: 0.95, y: -8 }}
+            transition={{ type: "spring", damping: 22, stiffness: 280 }}
+            style={
+              isMobile
+                ? {
+                    position: "fixed",
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    display: "flex",
+                    justifyContent: "center",
+                    zIndex: 110,
+                    paddingLeft: 12,
+                    paddingRight: 12,
+                    paddingBottom: "max(12px, env(safe-area-inset-bottom, 12px))",
+                  }
+                : anchorStyle
+            }
           >
-            <div className="rounded-2xl bg-[#1a1b2e] border border-white/10 shadow-2xl p-6 w-[300px] sm:w-[360px]">
-              <div className="text-center mb-4">
-                <p className="text-white/60 text-xs font-medium uppercase tracking-wider">
-                  Pick an Emoji
-                </p>
-                {/* Mobile hint */}
-                <p className="text-white/40 text-[11px] mt-1 sm:hidden">
-                  Your keyboard will open — switch to the emoji tab
-                </p>
-                {/* Desktop hint */}
-                <p className="text-white/40 text-[11px] mt-1 hidden sm:block">
-                  Press <kbd className="px-1 py-0.5 rounded bg-white/5 text-white/50 text-[10px]">Win</kbd> + <kbd className="px-1 py-0.5 rounded bg-white/5 text-white/50 text-[10px]">.</kbd> or <kbd className="px-1 py-0.5 rounded bg-white/5 text-white/50 text-[10px]">Ctrl</kbd> + <kbd className="px-1 py-0.5 rounded bg-white/5 text-white/50 text-[10px]">Cmd</kbd> + <kbd className="px-1 py-0.5 rounded bg-white/5 text-white/50 text-[10px]">Space</kbd>
-                </p>
-              </div>
-
-              {/* Large emoji preview */}
-              <div className="flex items-center justify-center h-20 mb-4">
-                {previewEmoji ? (
-                  <span className="text-5xl leading-none select-none">{previewEmoji}</span>
-                ) : (
-                  <span className="text-4xl leading-none text-white/15 select-none">?</span>
-                )}
-              </div>
-
-              {/* Input that triggers native keyboard */}
-              <div className="relative">
-                <input
-                  ref={inputRef}
-                  type="text"
-                  onChange={handleInput}
-                  onPaste={handlePaste}
-                  placeholder="Type or paste an emoji..."
-                  autoComplete="off"
-                  autoCorrect="off"
-                  autoCapitalize="off"
-                  spellCheck={false}
-                  className="w-full h-12 px-4 rounded-xl bg-white/5 border border-white/10 text-white text-center text-lg placeholder-white/30 focus:outline-none focus:border-tomato-primary/50 focus:ring-1 focus:ring-tomato-primary/20 transition-all"
-                  aria-label="Type or paste an emoji"
-                />
-              </div>
-
-              {/* Hint icons */}
-              <div className="flex items-center justify-center gap-4 mt-4 text-white/30">
-                <span className="text-lg">⌨️</span>
-                <span className="text-xs text-white/20">or paste</span>
-                <span className="text-lg">📋</span>
-              </div>
-
-              {/* Cancel button */}
-              <div className="flex justify-center mt-4">
-                <button
-                  onClick={onClose}
-                  className="px-6 py-2 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-white/50 hover:text-white/80 text-sm transition-all"
-                  type="button"
-                >
-                  Cancel
-                </button>
-              </div>
+            <div
+              className={isMobile ? "w-full max-w-[400px]" : ""}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <EmojiPicker
+                onEmojiClick={handleEmojiClick}
+                theme={Theme.DARK}
+                emojiStyle={EmojiStyle.NATIVE}
+                autoFocusSearch={true}
+                lazyLoadEmojis={true}
+                suggestedEmojisMode={SuggestionMode.RECENT}
+                width={isMobile ? "100%" : 350}
+                height={400}
+              />
             </div>
           </motion.div>
         </div>

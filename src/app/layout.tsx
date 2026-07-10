@@ -3,16 +3,36 @@ import "./globals.css";
 import { Providers } from "./providers";
 
 export const metadata: Metadata = {
-  title: "ThrowAtThem - Throw Fun at the World!",
+  title: "ThrowAtThem - Roast Friends. Throw Anything. Just for Fun.",
   description:
-    "A fun cartoon world where you can anonymously throw silly objects at countries around the globe. No signup needed!",
-  keywords: ["world throw", "fun", "game", "cartoon", "anonymous", "entertainment"],
+    "Create a funny profile, roast your friends, and throw virtual emojis, tomatoes, and hilarious objects at anyone. No signup. No login. Just fun.",
+  keywords: [
+    "ThrowAtThem",
+    "funny profiles",
+    "emoji throwing",
+    "roast friends",
+    "virtual tomato",
+    "throw emoji",
+    "fun social game",
+    "anonymous fun",
+    "meme game",
+    "humor",
+    "joke app",
+    "party game",
+    "emoji battle",
+  ],
   openGraph: {
-    title: "ThrowAtThem - Throw Fun at the World!",
+    title: "ThrowAtThem - Roast Friends. Throw Anything. Just for Fun.",
     description:
-      "A fun cartoon world where you can anonymously throw silly objects at countries around the globe.",
+      "Create a funny profile, roast your friends, and throw virtual emojis, tomatoes, and hilarious objects at anyone. No signup. No login. Just fun.",
     type: "website",
     locale: "en_US",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "ThrowAtThem - Roast Friends. Throw Anything. Just for Fun.",
+    description:
+      "Create a funny profile, roast your friends, and throw virtual emojis, tomatoes, and hilarious objects at anyone. No signup. No login. Just fun.",
   },
 };
 
