@@ -130,6 +130,14 @@ export const COUNTRIES: Country[] = [
     coordinates: { x: 542, y: 108 },
   },
   {
+    code: "PK",
+    name: "Pakistan",
+    flag: "🇵🇰",
+    color: "#2E7D32",
+    path: "M 490,92 L 515,88 L 518,108 L 505,118 L 490,110 L 488,100 Z",
+    coordinates: { x: 503, y: 103 },
+  },
+  {
     code: "JP",
     name: "Japan",
     flag: "🇯🇵",

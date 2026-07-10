@@ -3,6 +3,8 @@
 import { useState, useRef } from "react";
 import { motion } from "framer-motion";
 import { COUNTRIES } from "@/data/countries";
+import { CountryPicker } from "@/components/ui/CountryPicker";
+import type { CountryOption } from "@/components/ui/CountryPicker";
 
 interface CreateProfileModalProps {
   isOpen: boolean;
@@ -46,7 +48,7 @@ export function CreateProfileModal({ isOpen, onClose, onSubmit, isSubmitting }: 
   const [nickname, setNickname] = useState("");
   const [profession, setProfession] = useState("");
   const [country, setCountry] = useState("");
-  const [showCountryDropdown, setShowCountryDropdown] = useState(false);
+  const [showCountryPicker, setShowCountryPicker] = useState(false);
 
   // File upload state
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -128,7 +130,10 @@ export function CreateProfileModal({ isOpen, onClose, onSubmit, isSubmitting }: 
     });
   };
 
-  const sortedCountries = [...COUNTRIES].sort((a, b) => a.name.localeCompare(b.name));
+  const handleCountrySelect = (option: CountryOption) => {
+    setCountry(option.code);
+  };
+
   const selectedCountry = COUNTRIES.find((c) => c.code === country);
 
   // Can submit if: not submitting, has required fields, and no URL validation error
@@ -309,14 +314,14 @@ export function CreateProfileModal({ isOpen, onClose, onSubmit, isSubmitting }: 
             />
           </div>
 
-          {/* Country */}
-          <div className="relative">
+          {/* Country — Opens CountryPicker modal */}
+          <div>
             <label className="block text-[11px] font-semibold text-white/50 uppercase tracking-wider mb-1.5">
               Country <span className="text-orange-400">*</span>
             </label>
             <button
               type="button"
-              onClick={() => setShowCountryDropdown(!showCountryDropdown)}
+              onClick={() => setShowCountryPicker(true)}
               className="w-full h-10 px-3.5 rounded-xl bg-white/10 border border-white/15 text-sm text-left text-white/90 focus:outline-none focus:border-orange-400/40 focus:ring-1 focus:ring-orange-400/20 transition-all flex items-center gap-2"
             >
               {selectedCountry ? (
@@ -327,32 +332,15 @@ export function CreateProfileModal({ isOpen, onClose, onSubmit, isSubmitting }: 
               ) : (
                 <span className="text-white/30">Select your country</span>
               )}
-              <svg className="w-3 h-3 text-white/40 ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg
+                className="w-3 h-3 text-white/40 ml-auto"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
               </svg>
             </button>
-            {showCountryDropdown && (
-              <div className="absolute top-full left-0 right-0 mt-1 max-h-48 overflow-y-auto rounded-xl bg-black/80 backdrop-blur-xl border border-white/15 shadow-xl z-10 scrollbar-none">
-                {sortedCountries.map((c) => (
-                  <button
-                    key={c.code}
-                    type="button"
-                    onClick={() => {
-                      setCountry(c.code);
-                      setShowCountryDropdown(false);
-                    }}
-                    className={`w-full text-left px-3.5 py-2 text-sm flex items-center gap-2 transition-colors ${
-                      country === c.code
-                        ? "text-white font-semibold bg-white/10"
-                        : "text-white/65 hover:text-white hover:bg-white/5"
-                    }`}
-                  >
-                    <span>{c.flag}</span>
-                    <span>{c.name}</span>
-                  </button>
-                ))}
-              </div>
-            )}
           </div>
 
           {/* Actions */}
@@ -380,6 +368,14 @@ export function CreateProfileModal({ isOpen, onClose, onSubmit, isSubmitting }: 
             </button>
           </div>
         </form>
+
+        {/* Country Picker Popup */}
+        <CountryPicker
+          isOpen={showCountryPicker}
+          onClose={() => setShowCountryPicker(false)}
+          onSelect={handleCountrySelect}
+          selectedCode={country}
+        />
       </motion.div>
     </div>
   );
