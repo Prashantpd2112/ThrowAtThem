@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { insertProfile, fetchProfiles, fetchProfileThrowCounts, createProfilesSubscription, createThrowsSubscription, isSupabaseConfigured } from "@/lib/supabase";
 import type { DbIndividualProfile } from "@/lib/supabase";
 
@@ -39,11 +39,11 @@ const EMOJI_MAP: Record<string, string> = {
 };
 
 export function getProfileEmoji(nickname: string, index: number): string {
-  return EMOJI_MAP[nickname] || ["🌍", "🌟", "💡", "🎯", "🔥", "🌈", "⭐", "💎", "🎪", "🏆"][index % 10];
+  return EMOJI_MAP[nickname] || ["🌟", "💡", "🎯", "🔥", "🌈", "⭐", "💎", "🎪", "🏆"][index % 10];
 }
 
 export function getFlagEmoji(countryCode: string): string {
-  if (!countryCode || countryCode.length !== 2) return "🌍";
+  if (!countryCode || countryCode.length !== 2) return "";
   const codePoints = countryCode
     .toUpperCase()
     .split("")
@@ -172,8 +172,17 @@ export function useProfiles() {
     }
   }, []);
 
+  // Sort profiles by total throw count descending (matches Leaderboard order)
+  const sortedProfiles = useMemo(() => {
+    return [...profiles].sort((a, b) => {
+      const countA = throwCounts[a.id] || 0;
+      const countB = throwCounts[b.id] || 0;
+      return countB - countA;
+    });
+  }, [profiles, throwCounts]);
+
   return {
-    profiles,
+    profiles: sortedProfiles,
     profileRanks,
     throwCounts,
     loading,

@@ -1,7 +1,8 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { getProfileEmoji, getFlagEmoji } from "@/hooks/useProfiles";
+import { getProfileEmoji } from "@/hooks/useProfiles";
+import { COUNTRIES } from "@/data/countries";
 import type { ProfileWithFallback } from "@/hooks/useProfiles";
 
 interface IndividualCardProps {
@@ -13,7 +14,8 @@ interface IndividualCardProps {
 
 export function IndividualCard({ profile, rank, index, onClick }: IndividualCardProps) {
   const emoji = profile.isDummy ? getProfileEmoji(profile.nickname, index) : "👤";
-  const flag = getFlagEmoji(profile.country);
+  const countryData = profile.country ? COUNTRIES.find((c) => c.code === profile.country) : null;
+  const flag = countryData?.flag || "";
   const initials = profile.nickname
     .split(" ")
     .map((n) => n[0])
@@ -28,6 +30,7 @@ export function IndividualCard({ profile, rank, index, onClick }: IndividualCard
       transition={{ duration: 0.3, delay: index * 0.03, ease: "easeOut" }}
       whileHover={{ y: -5, scale: 1.02 }}
       onClick={() => onClick(profile)}
+      data-profile-id={profile.id}
       className="group relative rounded-2xl bg-white/[0.06] backdrop-blur-md border border-white/[0.10] shadow-[0_8px_30px_rgba(0,0,0,0.18)] hover:bg-white/[0.09] hover:border-white/[0.18] hover:shadow-[0_12px_40px_rgba(0,0,0,0.25)] transition-all duration-300 p-5 flex flex-col items-center text-center cursor-pointer"
     >
       {/* Avatar circle */}

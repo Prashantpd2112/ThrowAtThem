@@ -1,13 +1,11 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useCallback } from "react";
 import { insertThrow, isSupabaseConfigured } from "@/lib/supabase";
 
 export function useThrows() {
-  const [error, setError] = useState<string | null>(null);
-
   const submitThrow = useCallback(
-    async (
+    (
       guestId: string,
       nickname: string,
       throwerCountry: string,
@@ -16,15 +14,9 @@ export function useThrows() {
       reason: string,
       targetProfileId?: string | null
     ) => {
-      console.log('[DEBUG submitThrow] targetProfileId received:', targetProfileId);
-      setError(null);
-      if (!isSupabaseConfigured) {
-        setError("Supabase not configured");
-        return false;
-      }
-      try {
-        console.log('[DEBUG submitThrow] calling insertThrow with target_profile_id:', targetProfileId);
-        await insertThrow({
+      // Fire DB insert in background — never block the UI
+      if (isSupabaseConfigured) {
+        insertThrow({
           guest_id: guestId,
           nickname,
           thrower_country: throwerCountry,
@@ -32,12 +24,9 @@ export function useThrows() {
           object: objectId,
           reason,
           target_profile_id: targetProfileId,
+        }).catch((err) => {
+          console.error("[submitThrow] DB insert failed:", err);
         });
-        return true;
-      } catch (err) {
-        const message = err instanceof Error ? err.message : "Failed to submit throw";
-        setError(message);
-        return false;
       }
     },
     []
@@ -45,6 +34,5 @@ export function useThrows() {
 
   return {
     submitThrow,
-    error,
   };
 }

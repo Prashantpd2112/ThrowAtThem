@@ -345,6 +345,25 @@ export const fetchProfiles = async (): Promise<DbIndividualProfile[]> => {
   return (data || []) as DbIndividualProfile[];
 };
 
+// Check if a profile already exists with the same name + country + profession
+// Returns the matching profile if found, null otherwise.
+export const fetchProfileByUniqueFields = async (fields: {
+  nickname: string;
+  country: string;
+  profession: string;
+}): Promise<DbIndividualProfile | null> => {
+  const client = getClient();
+  const { data, error } = await client
+    .from("individual_profiles")
+    .select("*")
+    .eq("nickname", fields.nickname)
+    .eq("country", fields.country)
+    .eq("profession", fields.profession)
+    .maybeSingle();
+  if (error) throw error;
+  return data as DbIndividualProfile | null;
+};
+
 export function createProfilesSubscription(
   callback: (profile: DbIndividualProfile, event: "INSERT" | "UPDATE" | "DELETE") => void,
   onError?: (error: Error) => void

@@ -55,6 +55,7 @@ export interface IndividualLeaderboardEntry {
   profile_id: string;
   nickname: string;
   profile_image: string;
+  profession: string;
   count: number;
   country: string;
 }

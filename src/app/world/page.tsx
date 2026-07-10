@@ -7,6 +7,7 @@ import { Navigation } from "@/components/world/Navigation";
 import FullscreenLeaderboard from "@/components/world/FullscreenLeaderboard";
 
 import { LiveFeed } from "@/components/world/LiveFeed";
+import { LiveFeedOverlay } from "@/components/world/LiveFeedOverlay";
 import { Leaderboard } from "@/components/world/Leaderboard";
 import { SpaceBackground } from "@/components/world/SpaceBackground";
 import { ThrowAnimation, triggerThrowAnimation } from "@/components/world/ThrowAnimation";
@@ -22,6 +23,7 @@ import {
   ensureGuestExists,
   insertProfile,
   fetchProfileByGuestId,
+  fetchProfileByUniqueFields,
 } from "@/lib/supabase";
 import type { ThrowableObject } from "@/lib/types";
 
@@ -29,6 +31,7 @@ import { IndividualView } from "@/components/individual/IndividualView";
 import { CreateButton } from "@/components/individual/CreateButton";
 import { CreateProfileModal } from "@/components/individual/CreateProfileModal";
 
+import { getFlagEmoji } from "@/hooks/useProfiles";
 import type { ProfileWithFallback } from "@/hooks/useProfiles";
 
 // ──────────────────────────────────────────────────────────────
@@ -110,6 +113,7 @@ function DockItem({
       onClick={onClick}
       title={obj.name}
       type="button"
+      data-object-id={obj.id}
       style={{ width: ITEM_SIZE, height: ITEM_SIZE }}
       className="relative flex items-center justify-center bg-transparent border-0 outline-none p-0 shrink-0 cursor-pointer"
     >
@@ -303,7 +307,7 @@ export default function WorldPage() {
   const { guest, isLoaded, clearGuest } = useGuest();
   const { submitThrow } = useThrows();
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
-  const [isThrowing, setIsThrowing] = useState(false);
+  const lastThrowRef = useRef(0);
   const [selectedObject, setSelectedObject] = useState<string>("tomato");
   const [reason, setReason] = useState("");
   const [onlineCount, setOnlineCount] = useState(0);
@@ -314,6 +318,9 @@ export default function WorldPage() {
   const [leaderboardOpen, setLeaderboardOpen] = useState(false);
   const [presenceError, setPresenceError] = useState<string | null>(null);
   const [showSelectIndividualAlert, setShowSelectIndividualAlert] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [liveFeedOpen, setLiveFeedOpen] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const throwBtnRef = useRef<HTMLButtonElement>(null);
   const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const presenceUnsubscribeRef = useRef<(() => void) | null>(null);
@@ -324,6 +331,27 @@ export default function WorldPage() {
       router.replace("/");
     }
   }, [isLoaded, guest, router]);
+
+  // Prevent body/html scrolling — the world page manages its own scroll container.
+  // Saves original overflow values to restore exactly on cleanup.
+  useEffect(() => {
+    const prevBodyOverflow = document.body.style.overflow;
+    const prevHtmlOverflow = document.documentElement.style.overflow;
+    const prevBodyOverscroll = document.body.style.overscrollBehavior;
+    const prevHtmlOverscroll = document.documentElement.style.overscrollBehavior;
+
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+    document.body.style.overscrollBehavior = "contain";
+    document.documentElement.style.overscrollBehavior = "contain";
+
+    return () => {
+      document.body.style.overflow = prevBodyOverflow;
+      document.documentElement.style.overflow = prevHtmlOverflow;
+      document.body.style.overscrollBehavior = prevBodyOverscroll;
+      document.documentElement.style.overscrollBehavior = prevHtmlOverscroll;
+    };
+  }, []);
 
   const openLeaderboard = () => setLeaderboardOpen(true);
   const closeLeaderboard = () => setLeaderboardOpen(false);
@@ -440,6 +468,15 @@ export default function WorldPage() {
     }
   }, []);
 
+  const [duplicateAlert, setDuplicateAlert] = useState<string | null>(null);
+
+  // Auto-dismiss duplicate alert after 3 seconds
+  useEffect(() => {
+    if (!duplicateAlert) return;
+    const t = setTimeout(() => setDuplicateAlert(null), 3000);
+    return () => clearTimeout(t);
+  }, [duplicateAlert]);
+
   const handleCreateProfile = useCallback(async (data: {
     nickname: string;
     profile_image: string;
@@ -449,12 +486,25 @@ export default function WorldPage() {
     if (!guest) return;
     setIsCreatingProfile(true);
     try {
-      // Check if this guest already has a profile — prevent duplicates
+      // Check if this guest already has a profile — prevent duplicate per guest
       const existing = await fetchProfileByGuestId(guest.id);
       if (existing) {
         console.log('[CreateProfile] Guest already has a profile:', existing.id, '— selecting existing');
         setShowCreateModal(false);
         handleProfileSelect(existing);
+        return;
+      }
+
+      // Check if a profile with the exact same name + country + profession already exists globally
+      const duplicate = await fetchProfileByUniqueFields({
+        nickname: data.nickname,
+        country: data.country,
+        profession: data.profession,
+      });
+      if (duplicate) {
+        console.log('[CreateProfile] Duplicate profile found:', duplicate.id);
+        setDuplicateAlert(`A profile with the same name, country, and profession already exists.`);
+        setIsCreatingProfile(false);
         return;
       }
 
@@ -478,8 +528,13 @@ export default function WorldPage() {
   }, [guest]);
 
   const handleThrow = useCallback(
-    async (objectId: string, reason: string) => {
-      if (!guest || isThrowing) return;
+    (objectId: string, reason: string) => {
+      if (!guest) return;
+
+      // Tiny debounce (80ms) to prevent accidental double-tap spam
+      const now = Date.now();
+      if (now - lastThrowRef.current < 80) return;
+      lastThrowRef.current = now;
 
       // Check if we have a target (person's country)
       const target = selectedPerson?.country || selectedCountry;
@@ -488,51 +543,44 @@ export default function WorldPage() {
         return;
       }
 
-      setIsThrowing(true);
+      // Read the selected object's DOM position — launch animation from the actual icon
+      const objElement = document.querySelector(`[data-object-id="${objectId}"]`);
+      const objRect = objElement?.getBoundingClientRect();
+      const startX = objRect ? objRect.left + objRect.width / 2 : window.innerWidth * 0.5;
+      const startY = objRect ? objRect.top + objRect.height / 2 : window.innerHeight * 0.7;
 
-      const btnEl = throwBtnRef.current;
-      let startX = window.innerWidth * 0.5;
-      let startY = window.innerHeight * 0.7;
+      // Read the target profile card's DOM position — animation lands on the actual card
       let targetX = window.innerWidth * 0.4;
       let targetY = window.innerHeight * 0.3;
-
-      if (btnEl) {
-        const r = btnEl.getBoundingClientRect();
-        startX = r.left + r.width / 2;
-        startY = r.top + r.height / 2;
+      if (selectedPerson) {
+        const targetElement = document.querySelector(`[data-profile-id="${selectedPerson.id}"]`);
+        if (targetElement) {
+          const targetRect = targetElement.getBoundingClientRect();
+          targetX = targetRect.left + targetRect.width / 2;
+          targetY = targetRect.top + targetRect.height / 2;
+        }
       }
 
+      // Fire animation immediately
       const obj = getObjectById(objectId);
       if (obj) {
         triggerThrowAnimation(obj.emoji, startX, startY, targetX, targetY, obj.particleColor);
       }
 
-      // CRITICAL: Ensure the guest row exists in Supabase before inserting
-      // a throw that references guest_id as a foreign key.
-      try {
-        await ensureGuestExists(guest);
-      } catch {
-        setIsThrowing(false);
-        return;
-      }
+      // Clear reason so the user can type a new one
+      setReason("");
 
-      // DEBUG: Check what selectedPerson looks like right now
-      console.log('[DEBUG handleThrow] selectedPerson:', selectedPerson?.id, 'isDummy:', selectedPerson?.isDummy, 'nickname:', selectedPerson?.nickname);
-
-      // Only pass target_profile_id for real (non-dummy) profiles —
-      // dummy profile IDs don't exist in the Supabase table and would
-      // cause a foreign key violation, silently failing the throw.
+      // Fire DB insert in background — never block the UI
       const targetProfileId = selectedPerson && !selectedPerson.isDummy ? selectedPerson.id : undefined;
-      console.log('[DEBUG handleThrow] targetProfileId:', targetProfileId);
-      console.log('[DEBUG handleThrow] calling submitThrow with targetProfileId:', targetProfileId);
-      const success = await submitThrow(guest.id, guest.nickname, guest.country, target, objectId, reason, targetProfileId);
-      setIsThrowing(false);
-
-      if (success && target) {
-        setReason("");
-      }
+      ensureGuestExists(guest)
+        .then(() => {
+          submitThrow(guest.id, guest.nickname, guest.country, target, objectId, reason, targetProfileId);
+        })
+        .catch((err) => {
+          console.error("[handleThrow] ensureGuestExists failed:", err);
+        });
     },
-    [guest, selectedCountry, selectedPerson, submitThrow, isThrowing]
+    [guest, selectedCountry, selectedPerson, submitThrow]
   );
 
   if (!isLoaded || !guest) {
@@ -561,7 +609,7 @@ export default function WorldPage() {
         <SpaceBackground />
         <Navigation
           nickname={guest.nickname}
-          countryFlag={"🌍"}
+          countryFlag={getFlagEmoji(guest.country)}
           onlineCount={onlineCount}
           onLogout={handleLogout}
           showBackButton={true}
@@ -577,7 +625,7 @@ export default function WorldPage() {
   const hasTarget = Boolean(selectedPerson?.country || selectedCountry);
 
   return (
-    <div className="min-h-screen md:h-screen flex flex-col bg-[#03040A] overflow-y-auto md:overflow-hidden">
+    <div className="min-h-screen md:h-screen flex flex-col bg-[#03040A] overflow-hidden">
       {/* Space background - fixed behind everything */}
       <SpaceBackground />
 
@@ -588,18 +636,16 @@ export default function WorldPage() {
       {/* MOBILE: first screen = 100dvh                       */}
       {/* Nav → Search → Map (flex:1) → Throw (bottom)       */}
       {/* ────────────────────────────────────────────────── */}
-      <div className="relative md:hidden flex flex-col" style={{ height: "100dvh" }}>
+      <div className="relative md:hidden flex flex-col overflow-hidden" style={{ height: "100dvh", paddingTop: "env(safe-area-inset-top, 0px)", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
         {/* Nav */}
         <div className="shrink-0">
           <Navigation
             nickname={guest.nickname}
-            countryFlag={"🌍"}
+            countryFlag={getFlagEmoji(guest.country)}
             onlineCount={onlineCount}
             onLogout={handleLogout}
           />
         </div>
-
-
 
         {/* Connection banner */}
         {presenceError && (
@@ -610,8 +656,51 @@ export default function WorldPage() {
           </div>
         )}
 
+        {/* Search Bar */}
+        <div className="shrink-0 px-4 pt-1 pb-1">
+          <div className="relative">
+            <svg
+              className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40 pointer-events-none z-10"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+              aria-hidden="true"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              ref={searchInputRef}
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  setSearchQuery("");
+                  (e.target as HTMLInputElement).blur();
+                }
+              }}
+              placeholder="Search profiles..."
+              aria-label="Search profiles"
+              className="w-full h-9 pl-10 pr-10 rounded-full bg-white/10 backdrop-blur-md border border-white/15 text-sm text-white/90 placeholder-white/40 shadow-[0_4px_16px_rgba(0,0,0,0.12)] focus:outline-none focus:border-white/30 focus:ring-1 focus:ring-white/10 transition-all"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => { setSearchQuery(""); searchInputRef.current?.focus(); }}
+                className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded-full bg-white/15 hover:bg-white/25 transition-colors"
+                aria-label="Clear search"
+                type="button"
+              >
+                <svg className="w-3 h-3 text-white/60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
+          </div>
+        </div>
+
         {/* Controls row: Back, Leaderboard, Create */}
-        <div className="relative z-20 shrink-0 px-4 pt-1 pb-0.5">
+        <div className="relative z-20 shrink-0 px-4 pb-0.5">
           <div className="flex items-center justify-between gap-2">
             {selectedPerson ? (
               <motion.button
@@ -630,14 +719,7 @@ export default function WorldPage() {
                   onClick={openLeaderboard}
                   className="flex items-center gap-2 h-9 px-4 rounded-full bg-white/10 backdrop-blur-md border border-white/15 shadow-[0_4px_16px_rgba(0,0,0,0.12)] hover:bg-white/15 active:bg-white/20 transition-all duration-200 text-sm text-white/90 font-medium"
                 >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M7 4h10v5a5 5 0 01-10 0V4z" />
-                    <path d="M5 8a3 3 0 003 3" />
-                    <path d="M19 8a3 3 0 01-3 3" />
-                    <path d="M9 15h6" />
-                    <path d="M12 15v4" />
-                    <path d="M7 19h10" />
-                  </svg>
+                  <span className="text-base leading-none">🏆</span>
                   <span>Leaderboard</span>
                 </button>
                 <CreateButton onClick={() => setShowCreateModal(true)} />
@@ -646,13 +728,28 @@ export default function WorldPage() {
           </div>
         </div>
 
-        {/* Content — Individual View */}
-        <div className="flex-1 min-h-0 mx-4 mt-1 mb-0 overflow-hidden relative">
-          <IndividualView
-            selectedProfile={selectedPerson}
-            onSelectProfile={handleProfileSelect}
-            selectedProfileIndex={selectedProfileIndex}
-          />
+        {/* Content — Individual View (wrapped for Live Feed overlay) */}
+        <div className="flex-1 min-h-0 relative mx-4 mt-1 mb-0">
+          <div className="absolute inset-0 overflow-hidden pb-1">
+            <IndividualView
+              selectedProfile={selectedPerson}
+              onSelectProfile={handleProfileSelect}
+              selectedProfileIndex={selectedProfileIndex}
+              searchQuery={searchQuery}
+            />
+          </div>
+          {duplicateAlert && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 flex items-center justify-center z-50 pointer-events-none"
+            >
+              <div className="bg-[#03040A] border border-red-500/50 text-red-400 rounded-xl px-5 py-3 text-sm font-semibold shadow-lg select-none max-w-[280px] text-center">
+                {duplicateAlert}
+              </div>
+            </motion.div>
+          )}
           {showSelectIndividualAlert && (
             <motion.div
               initial={{ opacity: 0 }}
@@ -662,10 +759,44 @@ export default function WorldPage() {
               <div className="bg-transparent border-2 border-red-500 text-red-500 rounded-xl px-6 py-3.5 text-sm font-bold shadow-lg select-none">Select individual to throw</div>
             </motion.div>
           )}
+          <LiveFeedOverlay
+            isOpen={liveFeedOpen}
+            disabled={!isSupabaseConfigured}
+          />
         </div>
 
         {/* Throw panel — pinned to bottom */}
-        <div className="shrink-0 px-4 pt-3 pb-3">
+        <div className="relative shrink-0 px-4 pt-2 pb-[max(12px,env(safe-area-inset-bottom,0px))]">
+          {/* Live Feed toggle button — floats absolutely above the panel */}
+          <div className="absolute -top-[34px] left-4 z-10">
+            <button
+              onClick={() => setLiveFeedOpen((v) => !v)}
+              type="button"
+              aria-label={liveFeedOpen ? "Close live feed" : "Open live feed"}
+              className={`
+                relative flex items-center gap-1.5 h-8 px-3 rounded-full
+                backdrop-blur-xl border shadow-[0_4px_20px_rgba(0,0,0,0.08)]
+                transition-all duration-200
+                ${liveFeedOpen
+                  ? "bg-white/10 border-white/20 text-white/90"
+                  : "bg-white/[0.06] border-white/10 text-white/70 hover:bg-white/10 hover:text-white/90"
+                }
+              `}
+            >
+              <span className="relative flex w-2 h-2">
+                <span className="absolute inline-flex w-full h-full rounded-full bg-green-400 opacity-75 animate-ping" />
+                <span className="relative inline-flex w-2 h-2 rounded-full bg-green-500" />
+              </span>
+              <span className="text-[11px] font-semibold tracking-wide">Live</span>
+              {liveFeedOpen ? (
+                <span className="text-xs leading-none ml-0.5">✕</span>
+              ) : (
+                <svg className="w-3 h-3 ml-0.5 text-white/60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+                </svg>
+              )}
+            </button>
+          </div>
           <div className="rounded-2xl bg-white/[0.06] backdrop-blur-md border border-white/10 shadow-[0_8px_30px_rgba(0,0,0,0.18)] p-3">
             <div className="flex flex-col gap-3">
               <div className="flex-1 min-w-0 flex items-center gap-2">
@@ -686,7 +817,7 @@ export default function WorldPage() {
                     }
                   }}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter" && hasTarget && !isThrowing) {
+                    if (e.key === "Enter" && hasTarget) {
                       e.preventDefault();
                       handleThrow(selectedObject, reason);
                     }
@@ -694,7 +825,7 @@ export default function WorldPage() {
                   placeholder="Reason (optional)"
                   maxLength={50}
                   disabled={!hasTarget}
-                  className="h-10 flex-1 min-w-0 px-4 rounded-full bg-white/10 backdrop-blur-md border border-white/15 text-sm text-white/90 placeholder-white/40 shadow-[0_4px_16px_rgba(0,0,0,0.12)] focus:outline-none focus:border-white/30 focus:ring-1 focus:ring-white/10 disabled:opacity-50"
+                  className={`h-10 flex-1 min-w-0 px-4 rounded-full bg-white/10 backdrop-blur-md border border-white/15 text-sm text-white/90 placeholder-white/40 shadow-[0_4px_16px_rgba(0,0,0,0.12)] focus:outline-none focus:border-white/30 focus:ring-1 focus:ring-white/10 disabled:opacity-50`}
                 />
                 <motion.button
                   ref={throwBtnRef}
@@ -705,21 +836,8 @@ export default function WorldPage() {
                     !hasTarget ? "opacity-60 cursor-not-allowed pointer-events-none" : ""
                   }`}
                 >
-                  {isThrowing ? (
-                    <>
-                      <motion.span
-                        animate={{ rotate: 360 }}
-                        transition={{ duration: 0.8, repeat: Infinity, ease: "linear" }}
-                        className="inline-block w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full"
-                      />
-                      <span>Throwing…</span>
-                    </>
-                  ) : (
-                    <>
-                      <span>Throw!</span>
-                      <span className="text-base leading-none">🚀</span>
-                    </>
-                  )}
+                  <span>Throw!</span>
+                  <span className="text-base leading-none">🚀</span>
                 </motion.button>
               </div>
             </div>
@@ -734,7 +852,7 @@ export default function WorldPage() {
         <div className="shrink-0">
           <Navigation
             nickname={guest.nickname}
-            countryFlag={"🌍"}
+            countryFlag={getFlagEmoji(guest.country)}
             onlineCount={onlineCount}
             onLogout={handleLogout}
           />
@@ -749,8 +867,51 @@ export default function WorldPage() {
           </div>
         )}
 
+        {/* Search Bar */}
+        <div className="shrink-0 px-3 md:px-4 pt-1 pb-1">
+          <div className="relative">
+            <svg
+              className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40 pointer-events-none z-10"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+              aria-hidden="true"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              ref={searchInputRef}
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  setSearchQuery("");
+                  (e.target as HTMLInputElement).blur();
+                }
+              }}
+              placeholder="Search profiles..."
+              aria-label="Search profiles"
+              className="w-full h-9 pl-10 pr-10 rounded-full bg-white/10 backdrop-blur-md border border-white/15 text-sm text-white/90 placeholder-white/40 shadow-[0_4px_16px_rgba(0,0,0,0.12)] focus:outline-none focus:border-white/30 focus:ring-1 focus:ring-white/10 transition-all"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => { setSearchQuery(""); searchInputRef.current?.focus(); }}
+                className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded-full bg-white/15 hover:bg-white/25 transition-colors"
+                aria-label="Clear search"
+                type="button"
+              >
+                <svg className="w-3 h-3 text-white/60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
+          </div>
+        </div>
+
         {/* Controls row: Back, Leaderboard, Create */}
-        <div className="shrink-0 px-3 md:px-4 pt-2 pb-0">
+        <div className="shrink-0 px-3 md:px-4 pb-0">
           <div className="flex items-center justify-between gap-2">
             {selectedPerson ? (
               <motion.button
@@ -769,14 +930,7 @@ export default function WorldPage() {
                   onClick={openLeaderboard}
                   className="flex items-center gap-2 h-9 px-4 rounded-full bg-white/10 backdrop-blur-md border border-white/15 shadow-[0_4px_16px_rgba(0,0,0,0.12)] hover:bg-white/15 active:bg-white/20 transition-all duration-200 text-sm text-white/90 font-medium"
                 >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M7 4h10v5a5 5 0 01-10 0V4z" />
-                    <path d="M5 8a3 3 0 003 3" />
-                    <path d="M19 8a3 3 0 01-3 3" />
-                    <path d="M9 15h6" />
-                    <path d="M12 15v4" />
-                    <path d="M7 19h10" />
-                  </svg>
+                  <span className="text-base leading-none">🏆</span>
                   <span>Leaderboard</span>
                 </button>
                 <CreateButton onClick={() => setShowCreateModal(true)} />
@@ -796,13 +950,16 @@ export default function WorldPage() {
 
             {/* CENTER — Map + Throw */}
             <div className="col-span-6 min-h-0 flex flex-col gap-3 md:gap-4">
-              {/* Content — Individual View */}
-              <div className="flex-1 min-h-0 overflow-hidden relative">
-                <IndividualView
-                  selectedProfile={selectedPerson}
-                  onSelectProfile={handleProfileSelect}
-                  selectedProfileIndex={selectedProfileIndex}
-                />
+              {/* Content — Individual View (wrapped for Live Feed overlay) */}
+              <div className="flex-1 min-h-0 relative">
+                <div className="absolute inset-0 overflow-hidden">
+                  <IndividualView
+                    selectedProfile={selectedPerson}
+                    onSelectProfile={handleProfileSelect}
+                    selectedProfileIndex={selectedProfileIndex}
+                    searchQuery={searchQuery}
+                  />
+                </div>
                 {showSelectIndividualAlert && (
                   <motion.div
                     initial={{ opacity: 0 }}
@@ -814,9 +971,43 @@ export default function WorldPage() {
                     </div>
                   </motion.div>
                 )}
+                <LiveFeedOverlay
+                  isOpen={liveFeedOpen}
+                  disabled={!isSupabaseConfigured}
+                />
               </div>
 
-              <div className="shrink-0">
+              <div className="relative shrink-0">
+                {/* Live Feed toggle button — floats absolutely above the panel */}
+                <div className="absolute -top-[34px] left-3 md:left-4 z-10">
+                  <button
+                    onClick={() => setLiveFeedOpen((v) => !v)}
+                    type="button"
+                    aria-label={liveFeedOpen ? "Close live feed" : "Open live feed"}
+                    className={`
+                      relative flex items-center gap-1.5 h-8 px-3 rounded-full
+                      backdrop-blur-xl border shadow-[0_4px_20px_rgba(0,0,0,0.08)]
+                      transition-all duration-200
+                      ${liveFeedOpen
+                        ? "bg-white/10 border-white/20 text-white/90"
+                        : "bg-white/[0.06] border-white/10 text-white/70 hover:bg-white/10 hover:text-white/90"
+                      }
+                    `}
+                  >
+                    <span className="relative flex w-2 h-2">
+                      <span className="absolute inline-flex w-full h-full rounded-full bg-green-400 opacity-75 animate-ping" />
+                      <span className="relative inline-flex w-2 h-2 rounded-full bg-green-500" />
+                    </span>
+                    <span className="text-[11px] font-semibold tracking-wide">Live</span>
+                    {liveFeedOpen ? (
+                      <span className="text-xs leading-none ml-0.5">✕</span>
+                    ) : (
+                      <svg className="w-3 h-3 ml-0.5 text-white/60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
                 <div className="rounded-2xl bg-white/85 backdrop-blur-sm border border-[#E5E7EB] shadow-[0_4px_20px_rgba(0,0,0,0.04)] p-3 md:p-4">
                   <div className="flex flex-col md:flex-row md:items-center gap-3">
                     <div className="flex-1 min-w-0 flex items-center gap-2">
@@ -837,12 +1028,12 @@ export default function WorldPage() {
                             setReason(value);
                           }
                         }}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" && hasTarget && !isThrowing) {
-                            e.preventDefault();
-                            handleThrow(selectedObject, reason);
-                          }
-                        }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && hasTarget) {
+                      e.preventDefault();
+                      handleThrow(selectedObject, reason);
+                    }
+                  }}
                         placeholder="Reason (optional)"
                         maxLength={50}
                         disabled={!hasTarget}
@@ -852,27 +1043,14 @@ export default function WorldPage() {
                         ref={throwBtnRef}
                         whileTap={{ scale: 0.95 }}
                         onClick={() => handleThrow(selectedObject, reason)}
-                        disabled={!hasTarget}
-                        className={`h-10 px-5 rounded-full bg-gradient-to-r from-orange-500 to-pink-500 text-white text-sm font-bold shadow-md hover:shadow-lg transition-shadow flex items-center gap-1.5 ${
-                          !hasTarget ? "opacity-60 cursor-not-allowed pointer-events-none" : ""
-                        }`}
-                      >
-                        {isThrowing ? (
-                          <>
-                            <motion.span
-                              animate={{ rotate: 360 }}
-                              transition={{ duration: 0.8, repeat: Infinity, ease: "linear" }}
-                              className="inline-block w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full"
-                            />
-                            <span>Throwing…</span>
-                          </>
-                        ) : (
-                          <>
-                            <span>Throw!</span>
-                            <span className="text-base leading-none">🚀</span>
-                          </>
-                        )}
-                      </motion.button>
+                  disabled={!hasTarget}
+                  className={`h-10 px-5 rounded-full bg-gradient-to-r from-orange-500 to-pink-500 text-white text-sm font-bold shadow-md hover:shadow-lg transition-shadow flex items-center gap-1.5 ${
+                    !hasTarget ? "opacity-60 cursor-not-allowed pointer-events-none" : ""
+                  }`}
+                >
+                  <span>Throw!</span>
+                  <span className="text-base leading-none">🚀</span>
+                </motion.button>
                     </div>
                   </div>
                 </div>
