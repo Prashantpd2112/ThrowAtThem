@@ -22,8 +22,8 @@ import {
   isSupabaseConfigured,
   ensureGuestExists,
   insertProfile,
-  fetchProfileByGuestId,
   fetchProfileByUniqueFields,
+  uploadProfileImage,
 } from "@/lib/supabase";
 import type { ThrowableObject } from "@/lib/types";
 
@@ -324,6 +324,7 @@ export default function WorldPage() {
   const throwBtnRef = useRef<HTMLButtonElement>(null);
   const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const presenceUnsubscribeRef = useRef<(() => void) | null>(null);
+  const refetchProfilesRef = useRef<() => Promise<void>>(async () => {});
 
   // Redirect if no guest
   useEffect(() => {
@@ -482,47 +483,84 @@ export default function WorldPage() {
     profile_image: string;
     profession: string;
     country: string;
+    profile_file: File | null;
   }) => {
     if (!guest) return;
     setIsCreatingProfile(true);
-    try {
-      // Check if this guest already has a profile — prevent duplicate per guest
-      const existing = await fetchProfileByGuestId(guest.id);
-      if (existing) {
-        console.log('[CreateProfile] Guest already has a profile:', existing.id, '— selecting existing');
-        setShowCreateModal(false);
-        handleProfileSelect(existing);
-        return;
-      }
 
+    // 15-second timeout to prevent infinite Creating Card...
+    const TIMEOUT_MS = 15000;
+    let timedOut = false;
+    const timeoutId = setTimeout(() => {
+      timedOut = true;
+      setIsCreatingProfile(false);
+      setDuplicateAlert("Saving timed out. Check your connection and try again.");
+    }, TIMEOUT_MS);
+
+    try {
       // Check if a profile with the exact same name + country + profession already exists globally
+      // Comparison is case-insensitive and trimmed (handled by fetchProfileByUniqueFields)
       const duplicate = await fetchProfileByUniqueFields({
         nickname: data.nickname,
         country: data.country,
         profession: data.profession,
       });
+      if (timedOut) return;
       if (duplicate) {
         console.log('[CreateProfile] Duplicate profile found:', duplicate.id);
-        setDuplicateAlert(`A profile with the same name, country, and profession already exists.`);
+        clearTimeout(timeoutId);
+        setShowCreateModal(false);
+        setDuplicateAlert("This card already exists.");
+        handleProfileSelect(duplicate);
         setIsCreatingProfile(false);
         return;
       }
 
+      // Upload image to Supabase Storage if a file was selected
+      let profileImageUrl = data.profile_image;
+      if (data.profile_file) {
+        try {
+          profileImageUrl = await uploadProfileImage(data.profile_file, guest.id);
+          console.log('[CreateProfile] Image uploaded:', profileImageUrl);
+        } catch (uploadErr) {
+          const reason = uploadErr instanceof Error ? uploadErr.message : String(uploadErr);
+          console.error('[CreateProfile] Image upload failed:', reason);
+          clearTimeout(timeoutId);
+          setDuplicateAlert(`Image upload failed: ${reason}`);
+          setIsCreatingProfile(false);
+          return;
+        }
+      }
+      if (timedOut) return;
+
+      console.log('[CreateProfile] Inserting profile...');
       const id = await insertProfile({
         guest_id: guest.id,
         nickname: data.nickname,
-        profile_image: data.profile_image,
+        profile_image: profileImageUrl,
         profession: data.profession,
         country: data.country,
         city: "",
         bio: "",
         social_link: "",
       });
+      console.log('[CreateProfile] Insert success, id:', id);
+      if (timedOut) return;
+      clearTimeout(timeoutId);
+
+      // Await the profile list refresh before closing the modal
+      // This ensures the new card appears immediately in the list
       if (id) {
+        console.log('[CreateProfile] Refreshing profile list...');
+        await refetchProfilesRef.current();
+        console.log('[CreateProfile] Profile list refreshed, closing modal');
         setShowCreateModal(false);
       }
     } catch (err) {
+      clearTimeout(timeoutId);
+      const message = err instanceof Error ? err.message : "Unable to create card.";
       console.error("Failed to create profile:", err);
+      setDuplicateAlert(message);
     }
     setIsCreatingProfile(false);
   }, [guest]);
@@ -736,6 +774,7 @@ export default function WorldPage() {
               onSelectProfile={handleProfileSelect}
               selectedProfileIndex={selectedProfileIndex}
               searchQuery={searchQuery}
+              onRefetchReady={(fn) => { refetchProfilesRef.current = fn; }}
             />
           </div>
           {duplicateAlert && (
@@ -958,6 +997,7 @@ export default function WorldPage() {
                     onSelectProfile={handleProfileSelect}
                     selectedProfileIndex={selectedProfileIndex}
                     searchQuery={searchQuery}
+                    onRefetchReady={(fn) => { refetchProfilesRef.current = fn; }}
                   />
                 </div>
                 {showSelectIndividualAlert && (

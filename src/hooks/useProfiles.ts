@@ -118,6 +118,8 @@ export function useProfiles() {
     unsubscribeRef.current = createProfilesSubscription((newProfile, event) => {
       if (event === "INSERT") {
         setProfiles((prev) => {
+          // Prevent duplicate: if this profile already exists in state, skip
+          if (prev.some((p) => p.id === newProfile.id)) return prev;
           const hasReal = prev.some((p) => !p.isDummy);
           if (!hasReal && prev.length > 0) {
             return [{ ...newProfile, isDummy: false }, ...prev.filter((p) => p.isDummy)];
@@ -150,6 +152,21 @@ export function useProfiles() {
         throwsUnsubRef.current();
       }
     };
+  }, []);
+
+  // Manual refetch — used after creating a profile to bypass realtime subscription delays
+  const refetchProfiles = useCallback(async () => {
+    if (!isSupabaseConfigured) return;
+    try {
+      const [profilesData, counts] = await Promise.all([
+        fetchProfiles(),
+        fetchProfileThrowCounts(),
+      ]);
+      setProfiles(profilesData.map((p) => ({ ...p, isDummy: false })));
+      setThrowCounts(counts);
+    } catch (err) {
+      console.error("[useProfiles] refetch failed:", err);
+    }
   }, []);
 
   const createProfile = useCallback(async (profileData: {
@@ -187,5 +204,6 @@ export function useProfiles() {
     throwCounts,
     loading,
     createProfile,
+    refetchProfiles,
   };
 }

@@ -23,6 +23,7 @@ export function Navigation({
   return (
     <nav
       className="sticky top-0 z-30 bg-white border-b border-[#E5E7EB] shadow-[0_1px_2px_rgba(0,0,0,0.04),0_4px_12px_rgba(0,0,0,0.03)] max-md:h-16 md:h-[70px] max-md:bg-transparent max-md:backdrop-blur-md max-md:border-b-white/10 max-md:shadow-[0_1px_2px_rgba(0,0,0,0.15),0_4px_12px_rgba(0,0,0,0.08)]"
+      style={{ paddingTop: "env(safe-area-inset-top, 0px)" } as React.CSSProperties}
     >
       <div className="h-full max-w-[1600px] mx-auto max-md:px-4 md:px-6 flex items-center max-md:gap-0 md:gap-5">
         {/* Back button when in leaderboard fullscreen */}

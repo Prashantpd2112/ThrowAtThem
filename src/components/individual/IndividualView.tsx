@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import { motion } from "framer-motion";
 import { IndividualCard } from "./IndividualCard";
 import { ProfileDetail } from "./ProfileDetail";
@@ -12,10 +12,19 @@ interface IndividualViewProps {
   onSelectProfile: (profile: ProfileWithFallback | null) => void;
   selectedProfileIndex?: number;
   searchQuery?: string;
+  onRefetchReady?: (refetch: () => Promise<void>) => void;
 }
 
-export function IndividualView({ selectedProfile, onSelectProfile, selectedProfileIndex = 0, searchQuery = "" }: IndividualViewProps) {
-  const { profiles, profileRanks, throwCounts, loading } = useProfiles();
+export function IndividualView({ selectedProfile, onSelectProfile, selectedProfileIndex = 0, searchQuery = "", onRefetchReady }: IndividualViewProps) {
+  const { profiles, profileRanks, throwCounts, loading, refetchProfiles } = useProfiles();
+
+  // Expose refetchProfiles to parent via callback
+  // This is called once when the hook is ready so the parent can store the refetch function
+  const refetchExposed = useRef(false);
+  if (!refetchExposed.current && onRefetchReady && !loading) {
+    refetchExposed.current = true;
+    onRefetchReady(refetchProfiles);
+  }
 
   // Filter profiles by search query (case-insensitive, partial match on nickname)
   const filteredProfiles = useMemo(() => {

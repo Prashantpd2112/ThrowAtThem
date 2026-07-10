@@ -346,6 +346,7 @@ export const fetchProfiles = async (): Promise<DbIndividualProfile[]> => {
 };
 
 // Check if a profile already exists with the same name + country + profession
+// Uses case-insensitive comparison with normalized (trimmed, collapsed spaces) values.
 // Returns the matching profile if found, null otherwise.
 export const fetchProfileByUniqueFields = async (fields: {
   nickname: string;
@@ -353,12 +354,15 @@ export const fetchProfileByUniqueFields = async (fields: {
   profession: string;
 }): Promise<DbIndividualProfile | null> => {
   const client = getClient();
+  // Normalize: trim, collapse multiple spaces, escape ILIKE wildcards
+  const normalizeForILike = (s: string) =>
+    s.trim().replace(/\s+/g, " ").replace(/[%_\\]/g, "\\$&");
   const { data, error } = await client
     .from("individual_profiles")
     .select("*")
-    .eq("nickname", fields.nickname)
+    .ilike("nickname", normalizeForILike(fields.nickname))
     .eq("country", fields.country)
-    .eq("profession", fields.profession)
+    .ilike("profession", normalizeForILike(fields.profession))
     .maybeSingle();
   if (error) throw error;
   return data as DbIndividualProfile | null;
@@ -506,6 +510,89 @@ function createMockSupabase(): SupabaseClient {
     },
   });
 }
+
+// ── Storage Operations ──
+
+/**
+ * Uploads a profile image to Supabase Storage.
+ * Stores in `Profile/{uuid}.{ext}` bucket.
+ * Returns the public URL of the uploaded image.
+ */
+export const uploadProfileImage = async (
+  file: File,
+  guestId: string
+): Promise<string> => {
+  const client = getClient();
+  
+  // Log debug info
+  console.log('[uploadProfileImage] Supabase URL:', supabaseUrl ? supabaseUrl.substring(0, 30) + '...' : 'NOT SET');
+  console.log('[uploadProfileImage] Target bucket: Profile');
+  
+  // Validate file type
+  const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/avif", "image/heic", "image/svg+xml"];
+  if (!allowedTypes.includes(file.type)) {
+    throw new Error("Unsupported file type. Allowed: jpg, png, webp, gif, avif, heic, svg");
+  }
+
+  // Validate file size (10MB max)
+  const MAX_SIZE = 10 * 1024 * 1024; // 10MB
+  if (file.size > MAX_SIZE) {
+    throw new Error("Image must be under 10 MB.");
+  }
+
+  // Generate unique filename (no bucket prefix — .from("Profile") already specifies the bucket)
+  const ext = file.name.split(".").pop() || "jpg";
+  const fileName = `${guestId}-${Date.now()}.${ext}`;
+
+  console.log('[uploadProfileImage] File name:', fileName, '| File type:', file.type, '| File size:', file.size);
+
+  // Upload to Supabase Storage bucket "Profile"
+  const { data, error } = await client.storage
+    .from("Profile")
+    .upload(fileName, file, {
+      cacheControl: "3600",
+      upsert: false,
+    });
+
+  if (error) {
+    console.error('[uploadProfileImage] Upload ERROR response:', JSON.stringify(error));
+    throw new Error(`Image upload failed: ${error.message}`);
+  }
+
+  console.log('[uploadProfileImage] Upload success:', JSON.stringify(data));
+
+  // Get public URL
+  const { data: urlData } = client.storage
+    .from("Profile")
+    .getPublicUrl(fileName);
+
+  console.log('[uploadProfileImage] Public URL:', urlData.publicUrl);
+
+  return urlData.publicUrl;
+};
+
+/**
+ * Deletes a profile image from Supabase Storage given its public URL.
+ * Extracts the file path from the URL.
+ */
+export const deleteProfileImage = async (publicUrl: string): Promise<void> => {
+  const client = getClient();
+
+  // Extract the file path from the public URL
+  // URL format: /storage/v1/object/public/Profile/{filepath}
+  const urlParts = publicUrl.split("/public/Profile/");
+  if (urlParts.length < 2) return; // Not a storage URL, skip
+
+  const filePath = urlParts[1];
+
+  const { error } = await client.storage
+    .from("Profile")
+    .remove([filePath]);
+
+  if (error) {
+    console.error("Failed to delete old profile image:", error.message);
+  }
+};
 
 // ── Exports ──
 export const supabase = isConfigured ? getClient() : createMockSupabase();
