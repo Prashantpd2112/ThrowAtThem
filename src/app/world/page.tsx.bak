@@ -532,7 +532,7 @@ export default function WorldPage() {
       <div className="shrink-0">
         <Navigation
           nickname={guest.nickname}
-          countryFlag={guestCountry?.flag || "🌍"}
+          countryFlag={guestCountry?.flag || "�"}
           onlineCount={onlineCount}
           selectedCountryName={targetCountry?.name || null}
           selectedCountryFlag={targetCountry?.flag || null}

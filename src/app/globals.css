@@ -5,10 +5,10 @@
   --color-wt-blue: #3B82F6;
   --color-wt-sky: #7DD3FC;
   --color-wt-green: #22C55E;
-  --color-wt-orange: #F97316;
+  --color-wt-orange: #EF4444;
   --color-wt-yellow: #EAB308;
-  --color-wt-purple: #A855F7;
-  --color-wt-pink: #EC4899;
+  --color-wt-purple: #FF6B57;
+  --color-wt-pink: #C62828;
   --color-wt-cream: #FEF9EF;
   --color-wt-dark: #0F172A;
   --color-wt-darkcard: #1E293B;
@@ -17,6 +17,12 @@
   --color-wt-muted: #64748B;
   --color-wt-text: #1E293B;
   --color-wt-card: #FFFFFF;
+
+  /* Tomato brand colors */
+  --color-tomato-highlight: #FF6B57;
+  --color-tomato-primary: #EF4444;
+  --color-tomato-medium: #E53935;
+  --color-tomato-deep: #C62828;
 
   --font-family-display: "Fredoka", "Comic Sans MS", cursive, sans-serif;
   --font-family-body: "Nunito", system-ui, sans-serif;
@@ -87,6 +93,23 @@ body {
     transform: translate(350px, 250px);
     opacity: 0;
   }
+}
+
+/* ── Tomato Gradient Utility Classes ── */
+.bg-tomato-gradient-r {
+  background: linear-gradient(to right, #FF6B57 0%, #EF4444 35%, #E53935 70%, #C62828 100%);
+}
+.bg-tomato-gradient-br {
+  background: linear-gradient(to bottom right, #FF6B57 0%, #EF4444 35%, #E53935 70%, #C62828 100%);
+}
+.bg-tomato-gradient {
+  background: linear-gradient(135deg, #FF6B57 0%, #EF4444 35%, #E53935 70%, #C62828 100%);
+}
+.text-tomato-gradient {
+  background: linear-gradient(90deg, #FF7A00 0%, #FF5E5B 45%, #E8459C 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 /* ── Glass Card - HIGH OPACITY for readability, with blur for glass effect ── */
@@ -168,8 +191,8 @@ body {
 }
 
 .input-glass:focus {
-  border-color: #F97316;
-  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.1);
+  border-color: #EF4444;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
 }
 
 .dark .input-glass {
@@ -183,8 +206,8 @@ body {
 }
 
 .dark .input-glass:focus {
-  border-color: #F97316;
-  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.15);
+  border-color: #EF4444;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
 }
 
 /* ── Object Tile ── */
@@ -198,15 +221,15 @@ body {
 
 .object-tile:hover {
   background: rgba(255, 255, 255, 0.95);
-  border-color: rgba(249, 115, 22, 0.3);
+  border-color: rgba(239, 68, 68, 0.3);
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(249, 115, 22, 0.08);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.08);
 }
 
 .object-tile.selected {
-  background: rgba(249, 115, 22, 0.12);
-  border-color: #F97316;
-  box-shadow: 0 0 0 1px rgba(249, 115, 22, 0.3), 0 4px 16px rgba(249, 115, 22, 0.12);
+  background: rgba(239, 68, 68, 0.12);
+  border-color: #EF4444;
+  box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.3), 0 4px 16px rgba(239, 68, 68, 0.12);
 }
 
 .dark .object-tile {
@@ -216,12 +239,12 @@ body {
 
 .dark .object-tile:hover {
   background: rgba(255, 255, 255, 0.12);
-  border-color: rgba(249, 115, 22, 0.3);
+  border-color: rgba(239, 68, 68, 0.3);
 }
 
 .dark .object-tile.selected {
-  background: rgba(249, 115, 22, 0.15);
-  border-color: #F97316;
+  background: rgba(239, 68, 68, 0.15);
+  border-color: #EF4444;
 }
 
 /* ── Premium Button ── */
@@ -229,7 +252,7 @@ body {
   position: relative;
   border: none;
   border-radius: 16px;
-  background: linear-gradient(135deg, #F97316, #EC4899);
+  background: linear-gradient(135deg, #FF6B57 0%, #EF4444 35%, #E53935 70%, #C62828 100%);
   color: white;
   font-weight: 700;
   cursor: pointer;
@@ -238,8 +261,8 @@ body {
 
 .btn-premium:hover:not(:disabled) {
   transform: translateY(-2px) scale(1.01);
-  box-shadow: 0 8px 24px rgba(249, 115, 22, 0.3);
-  background: linear-gradient(135deg, #FB923C, #F472B6);
+  box-shadow: 0 8px 24px rgba(239, 68, 68, 0.3);
+  background: linear-gradient(135deg, #FF8A75 0%, #EF4444 35%, #E53935 70%, #C62828 100%);
 }
 
 .btn-premium:active:not(:disabled) {
@@ -324,7 +347,7 @@ body {
 
 /* ── Selection ── */
 ::selection {
-  background: rgba(249, 115, 22, 0.2);
+  background: rgba(239, 68, 68, 0.2);
   color: inherit;
 }
 
@@ -349,7 +372,7 @@ body {
     color: rgba(255, 255, 255, 0.40) !important;
   }
   .m-text-accent {
-    color: #F97316 !important;
+    color: #EF4444 !important;
   }
   .m-border {
     border-color: rgba(255, 255, 255, 0.08) !important;

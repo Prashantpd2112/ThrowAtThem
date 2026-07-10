@@ -133,16 +133,16 @@ export function LiveFeed() {
   }, []);
 
   return (
-    <div className="bg-white rounded-2xl border border-[#E5E7EB] shadow-[0_4px_20px_rgba(0,0,0,0.04)] flex flex-col h-full overflow-hidden">
-      <div className="shrink-0 flex items-center justify-between px-4 pt-3 pb-2.5 border-b border-gray-100 max-md:border-b-white/10">
-        <h3 className="text-xs font-bold text-gray-800 flex items-center gap-2 max-md:text-white/90">
+    <div className="bg-white/[0.04] backdrop-blur-md rounded-2xl border border-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.15)] flex flex-col h-full overflow-hidden">
+      <div className="shrink-0 flex items-center justify-between px-4 pt-3 pb-2.5 border-b border-white/10">
+        <h3 className="text-xs font-bold text-white/90 flex items-center gap-2">
           <span className="relative flex w-2 h-2">
             <span className="absolute inline-flex w-full h-full rounded-full bg-green-400 opacity-75 animate-ping" />
             <span className="relative inline-flex w-2 h-2 rounded-full bg-green-500" />
           </span>
           Live Feed
         </h3>
-        <span className="text-[10px] font-semibold text-gray-500 bg-gray-100 px-2.5 py-0.5 rounded-full max-md:bg-white/10 max-md:text-white/60">
+        <span className="text-[10px] font-semibold text-white/60 bg-white/10 px-2.5 py-0.5 rounded-full">
           {formatCompactNumber(totalThrows ?? 0)} throws
         </span>
       </div>
@@ -163,7 +163,7 @@ export function LiveFeed() {
               {[0, 1, 2].map((i) => (
                 <motion.div
                   key={i}
-                  className="w-2 h-2 bg-orange-500 rounded-full"
+                  className="w-2 h-2 bg-tomato-primary rounded-full"
                   animate={{ y: [0, -6, 0] }}
                   transition={{ duration: 0.5, repeat: Infinity, delay: i * 0.12 }}
                 />
@@ -173,11 +173,11 @@ export function LiveFeed() {
           </div>
         ) : throws.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-10 text-center px-4">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-orange-100 to-pink-100 flex items-center justify-center mb-3">
+            <div className="w-12 h-12 rounded-2xl bg-white/[0.06] flex items-center justify-center mb-3">
               <span className="text-2xl">🎯</span>
             </div>
-            <p className="text-sm font-semibold text-gray-800">No throws yet</p>
-            <p className="text-xs text-gray-500 mt-1">Select a profile and throw something!</p>
+            <p className="text-sm font-semibold text-white/80">No throws yet</p>
+            <p className="text-xs text-white/40 mt-1">Select a profile and throw something!</p>
           </div>
         ) : (
           <AnimatePresence initial={false}>
@@ -195,8 +195,8 @@ export function LiveFeed() {
                 </span>
 
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs leading-snug text-gray-800 max-md:text-white/85">
-                    <span className="font-bold text-orange-500">{entry.nickname}</span>
+                  <p className="text-xs leading-snug text-white/85">
+                    <span className="font-bold max-md:text-tomato-primary md:text-white">{entry.nickname}</span>
                     <span className="mx-1.5 text-base leading-none">{entry.object}</span>
                     <span className="text-gray-400">→</span>
                     <span className="ml-1 font-semibold">
@@ -204,13 +204,13 @@ export function LiveFeed() {
                     </span>
                   </p>
                   {entry.reason && (
-                    <p className="text-[10px] text-gray-500 mt-0.5 leading-relaxed max-md:text-white/50">
+                    <p className="text-[10px] text-white/50 mt-0.5 leading-relaxed">
                       {entry.reason}
                     </p>
                   )}
                 </div>
 
-                <span className={`text-[9px] text-gray-400 font-medium shrink-0 ${entry.reason ? "mt-0.5" : ""} max-md:text-white/40`}>
+                <span className={`text-[9px] text-white/40 font-medium shrink-0 ${entry.reason ? "mt-0.5" : ""}`}>
                   {formatRelativeTime(entry.created_at)}
                 </span>
               </motion.div>

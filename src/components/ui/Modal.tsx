@@ -53,14 +53,14 @@ export function Modal({ isOpen, onClose, children, className = "", showCloseButt
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
             className={`relative w-full max-w-lg ${className}`}
           >
-            <div className="rounded-3xl p-6 md:p-8 shadow-2xl bg-white/95 backdrop-blur-md border border-gray-200 max-md:bg-white/[0.06] max-md:backdrop-blur-xl max-md:border-white/10 max-md:shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
+            <div className="rounded-3xl p-6 md:p-8 bg-white/[0.06] backdrop-blur-xl border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
               {showCloseButton && (
                 <button
                   onClick={onClose}
-                  className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full bg-black/5 hover:bg-black/10 dark:bg-white/5 dark:hover:bg-white/10 transition-colors max-md:bg-white/10 max-md:hover:bg-white/15"
+                  className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full bg-black/20 hover:bg-black/30 dark:bg-white/20 dark:hover:bg-white/30 transition-colors"
                 >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
               )}

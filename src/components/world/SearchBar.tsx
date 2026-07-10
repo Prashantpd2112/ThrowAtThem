@@ -103,7 +103,7 @@ export const SearchBar = forwardRef<HTMLInputElement, SearchBarProps>(function S
   const isGlass = variant === "glass";
   const wrapperClass = isGlass
     ? "w-full h-10 rounded-full bg-white/10 backdrop-blur-md border border-white/15 shadow-sm transition-all duration-200 focus-within:bg-white/15 focus-within:border-white/25"
-    : "w-full h-10 rounded-full bg-white border border-[#E5E7EB] shadow-sm transition-all duration-200 focus-within:border-[#F97316] focus-within:ring-2 focus-within:ring-orange-100";
+    : "w-full h-10 rounded-full bg-white border border-[#E5E7EB] shadow-sm transition-all duration-200 focus-within:border-[#EF4444] focus-within:ring-2 focus-within:ring-[rgba(239,68,68,0.15)]";
   const iconColor = isGlass ? "text-white/55" : "text-gray-400 max-md:text-white/50";
   const placeholderColor = isGlass
     ? "placeholder-white/45 text-white/90"

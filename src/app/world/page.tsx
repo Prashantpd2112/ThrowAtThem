@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
 import { Navigation } from "@/components/world/Navigation";
@@ -11,9 +11,10 @@ import { LiveFeedOverlay } from "@/components/world/LiveFeedOverlay";
 import { Leaderboard } from "@/components/world/Leaderboard";
 import { SpaceBackground } from "@/components/world/SpaceBackground";
 import { ThrowAnimation, triggerThrowAnimation } from "@/components/world/ThrowAnimation";
+import { EmojiPickerModal } from "@/components/world/EmojiPickerModal";
 import { useGuest } from "@/hooks/useGuest";
 import { useThrows } from "@/hooks/useThrows";
-import { THROWABLE_OBJECTS, getObjectById } from "@/data/objects";
+import { THROWABLE_OBJECTS, getObjectById, makeCustomEmojiId } from "@/data/objects";
 import {
   upsertPresence,
   removePresence,
@@ -56,6 +57,7 @@ type DockObjectPickerProps = {
   objects: ThrowableObject[];
   selectedId: string;
   onSelect: (id: string) => void;
+  onAddEmojiClick?: () => void;
 };
 
 const ITEM_SIZE = 32;        // px — fixed hit-target / button frame (keeps layout stable)
@@ -198,7 +200,7 @@ function ScrollIndicator({
   );
 }
 
-function DockObjectPicker({ objects, selectedId, onSelect }: DockObjectPickerProps) {
+function DockObjectPicker({ objects, selectedId, onSelect, onAddEmojiClick }: DockObjectPickerProps) {
   // mouseX is a SHARED motion value. We update it directly in the handler
   // (no React state), so pointer moves are GPU-friendly and never cause
   // a re-render of this list.
@@ -295,6 +297,43 @@ function DockObjectPicker({ objects, selectedId, onSelect }: DockObjectPickerPro
             onClick={() => onSelect(obj.id)}
           />
         ))}
+        {/* Add Emoji button — always last */}
+        <motion.button
+          onClick={onAddEmojiClick}
+          title="Add custom emoji"
+          type="button"
+          aria-label="Add a custom emoji"
+          style={{ width: ITEM_SIZE, height: ITEM_SIZE }}
+          className="relative flex items-center justify-center bg-transparent border-0 outline-none p-0 shrink-0 cursor-pointer group"
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.92 }}
+          transition={{ type: "spring", mass: 0.1, stiffness: 170, damping: 14 }}
+        >
+          <motion.span
+            aria-hidden
+            className="leading-none select-none inline-block text-white/40 group-hover:text-white/80 transition-colors duration-200"
+            style={{
+              fontSize: BASE_EMOJI,
+              lineHeight: 1,
+            }}
+          >
+            <svg
+              width="22"
+              height="22"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="block"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="8" x2="12" y2="16" />
+              <line x1="8" y1="12" x2="16" y2="12" />
+            </svg>
+          </motion.span>
+        </motion.button>
       </div>
       <ScrollIndicator visible={canScrollLeft} direction="left" onClick={handleScrollLeft} />
       <ScrollIndicator visible={canScrollRight} direction="right" onClick={handleScrollRight} />
@@ -320,6 +359,8 @@ export default function WorldPage() {
   const [showSelectIndividualAlert, setShowSelectIndividualAlert] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [liveFeedOpen, setLiveFeedOpen] = useState(false);
+  const [customEmoji, setCustomEmoji] = useState<string | null>(null);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const throwBtnRef = useRef<HTMLButtonElement>(null);
   const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -332,6 +373,31 @@ export default function WorldPage() {
       router.replace("/");
     }
   }, [isLoaded, guest, router]);
+
+  // Load last custom emoji from localStorage on mount
+  useEffect(() => {
+    if (isLoaded) {
+      try {
+        const saved = localStorage.getItem("ThrowAtThem_lastCustomEmoji");
+        if (saved) {
+          setCustomEmoji(saved);
+        }
+      } catch {
+        // localStorage not available — silently ignore
+      }
+    }
+  }, [isLoaded]);
+
+  // Save custom emoji to localStorage whenever it changes
+  useEffect(() => {
+    if (customEmoji) {
+      try {
+        localStorage.setItem("ThrowAtThem_lastCustomEmoji", customEmoji);
+      } catch {
+        // silently ignore
+      }
+    }
+  }, [customEmoji]);
 
   // Prevent body/html scrolling — the world page manages its own scroll container.
   // Saves original overflow values to restore exactly on cleanup.
@@ -565,6 +631,30 @@ export default function WorldPage() {
     setIsCreatingProfile(false);
   }, [guest]);
 
+  // Build the display objects list: predefined objects + optional custom emoji object
+  const displayObjects = useMemo(() => {
+    if (customEmoji) {
+      const customObj: ThrowableObject = {
+        id: makeCustomEmojiId(customEmoji),
+        emoji: customEmoji,
+        name: `Custom ${customEmoji}`,
+        description: `Custom emoji ${customEmoji}`,
+        color: "#FFCA28",
+        particleColor: "#FFD54F",
+      };
+      return [...THROWABLE_OBJECTS, customObj];
+    }
+    return THROWABLE_OBJECTS;
+  }, [customEmoji]);
+
+  const handleEmojiSelect = useCallback(
+    (emoji: string) => {
+      setCustomEmoji(emoji);
+      setSelectedObject(makeCustomEmojiId(emoji));
+    },
+    []
+  );
+
   const handleThrow = useCallback(
     (objectId: string, reason: string) => {
       if (!guest) return;
@@ -581,17 +671,37 @@ export default function WorldPage() {
         return;
       }
 
-      // Read the selected object's DOM position — launch animation from the actual icon
-      const objElement = document.querySelector(`[data-object-id="${objectId}"]`);
+      // Read the selected object's DOM position — launch animation from the actual icon.
+      // On desktop there are TWO DockObjectPickers in the DOM (mobile hidden, desktop visible).
+      // querySelector returns the FIRST match, which may be the hidden one with all-zero rect.
+      // We iterate all matches and pick the first one with a non-zero bounding rect.
+      let objElement: Element | null = null;
+      const allObjElements = document.querySelectorAll(`[data-object-id="${objectId}"]`);
+      for (const el of allObjElements) {
+        const r = el.getBoundingClientRect();
+        if (r.width > 0 && r.height > 0) {
+          objElement = el;
+          break;
+        }
+      }
       const objRect = objElement?.getBoundingClientRect();
       const startX = objRect ? objRect.left + objRect.width / 2 : window.innerWidth * 0.5;
       const startY = objRect ? objRect.top + objRect.height / 2 : window.innerHeight * 0.7;
 
-      // Read the target profile card's DOM position — animation lands on the actual card
+      // Read the target profile avatar's DOM position — animation lands on the avatar image.
+      // Same visible-element approach as start position (mobile/desktop both render the avatar).
       let targetX = window.innerWidth * 0.4;
       let targetY = window.innerHeight * 0.3;
       if (selectedPerson) {
-        const targetElement = document.querySelector(`[data-profile-id="${selectedPerson.id}"]`);
+        let targetElement: Element | null = null;
+        const allTargetElements = document.querySelectorAll(`[data-profile-avatar="${selectedPerson.id}"]`);
+        for (const el of allTargetElements) {
+          const r = el.getBoundingClientRect();
+          if (r.width > 0 && r.height > 0) {
+            targetElement = el;
+            break;
+          }
+        }
         if (targetElement) {
           const targetRect = targetElement.getBoundingClientRect();
           targetX = targetRect.left + targetRect.width / 2;
@@ -629,7 +739,7 @@ export default function WorldPage() {
             {[0, 1, 2].map((i) => (
               <motion.div
                 key={i}
-                className="w-3 h-3 bg-orange-500 rounded-full"
+                className="w-3 h-3 bg-tomato-primary rounded-full"
                 animate={{ y: [0, -10, 0] }}
                 transition={{ duration: 0.6, repeat: Infinity, delay: i * 0.15 }}
               />
@@ -840,9 +950,10 @@ export default function WorldPage() {
             <div className="flex flex-col gap-3">
               <div className="flex-1 min-w-0 flex items-center gap-2">
                 <DockObjectPicker
-                  objects={THROWABLE_OBJECTS}
+                  objects={displayObjects}
                   selectedId={selectedObject}
                   onSelect={setSelectedObject}
+                  onAddEmojiClick={() => setShowEmojiPicker(true)}
                 />
               </div>
               <div className="flex items-center gap-2 w-full">
@@ -871,7 +982,7 @@ export default function WorldPage() {
                   whileTap={{ scale: 0.95 }}
                   onClick={() => handleThrow(selectedObject, reason)}
                   disabled={!hasTarget}
-                  className={`h-10 px-5 rounded-full bg-gradient-to-r from-orange-500 to-pink-500 text-white text-sm font-bold shadow-md hover:shadow-lg transition-shadow flex items-center gap-1.5 shrink-0 ${
+                  className={`h-10 px-5 rounded-full bg-tomato-gradient-r text-white text-sm font-bold shadow-md hover:shadow-lg transition-shadow flex items-center gap-1.5 shrink-0 ${
                     !hasTarget ? "opacity-60 cursor-not-allowed pointer-events-none" : ""
                   }`}
                 >
@@ -894,6 +1005,9 @@ export default function WorldPage() {
             countryFlag={getFlagEmoji(guest.country)}
             onlineCount={onlineCount}
             onLogout={handleLogout}
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            onCreateClick={() => setShowCreateModal(true)}
           />
         </div>
 
@@ -906,85 +1020,28 @@ export default function WorldPage() {
           </div>
         )}
 
-        {/* Search Bar */}
-        <div className="shrink-0 px-3 md:px-4 pt-1 pb-1">
-          <div className="relative">
-            <svg
-              className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40 pointer-events-none z-10"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-              aria-hidden="true"
+
+        {/* Desktop back button — only visible when a profile is selected */}
+        {selectedPerson && (
+          <div className="shrink-0 px-3 md:px-4 pb-1">
+            <motion.button
+              onClick={() => handleProfileSelect(null)}
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.96 }}
+              className="flex items-center justify-center w-9 h-9 rounded-full bg-white/10 backdrop-blur-md border border-white/15 shadow-[0_4px_16px_rgba(0,0,0,0.12)] hover:bg-white/15 active:bg-white/20 transition-all duration-200"
             >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-            <input
-              ref={searchInputRef}
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Escape") {
-                  setSearchQuery("");
-                  (e.target as HTMLInputElement).blur();
-                }
-              }}
-              placeholder="Search profiles..."
-              aria-label="Search profiles"
-              className="w-full h-9 pl-10 pr-10 rounded-full bg-white/10 backdrop-blur-md border border-white/15 text-sm text-white/90 placeholder-white/40 shadow-[0_4px_16px_rgba(0,0,0,0.12)] focus:outline-none focus:border-white/30 focus:ring-1 focus:ring-white/10 transition-all"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => { setSearchQuery(""); searchInputRef.current?.focus(); }}
-                className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded-full bg-white/15 hover:bg-white/25 transition-colors"
-                aria-label="Clear search"
-                type="button"
-              >
-                <svg className="w-3 h-3 text-white/60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            )}
+              <svg className="w-3.5 h-3.5 text-white/80" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 12H5m7-7l-7 7 7 7" />
+              </svg>
+            </motion.button>
           </div>
-        </div>
+        )}
 
-        {/* Controls row: Back, Leaderboard, Create */}
-        <div className="shrink-0 px-3 md:px-4 pb-0">
-          <div className="flex items-center justify-between gap-2">
-            {selectedPerson ? (
-              <motion.button
-                onClick={() => handleProfileSelect(null)}
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.96 }}
-                className="flex items-center justify-center w-9 h-9 rounded-full bg-white/10 backdrop-blur-md border border-white/15 shadow-[0_4px_16px_rgba(0,0,0,0.12)] hover:bg-white/15 active:bg-white/20 transition-all duration-200"
-              >
-                <svg className="w-3.5 h-3.5 text-white/80" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 12H5m7-7l-7 7 7 7" />
-                </svg>
-              </motion.button>
-            ) : (
-              <>
-                <button
-                  onClick={openLeaderboard}
-                  className="flex items-center gap-2 h-9 px-4 rounded-full bg-white/10 backdrop-blur-md border border-white/15 shadow-[0_4px_16px_rgba(0,0,0,0.12)] hover:bg-white/15 active:bg-white/20 transition-all duration-200 text-sm text-white/90 font-medium"
-                >
-                  <span className="text-base leading-none">🏆</span>
-                  <span>Leaderboard</span>
-                </button>
-                <CreateButton onClick={() => setShowCreateModal(true)} />
-              </>
-            )}
-          </div>
-        </div>
-
-        <div className="flex-1 min-h-0 px-3 md:px-4 pt-3 pb-3 md:pb-4">
+        <div className="flex-1 min-h-0 px-3 md:px-4 pt-2 pb-3 md:pb-4">
           <div className="h-full grid grid-cols-12 gap-3 md:gap-4">
             {/* LEFT — Leaderboard */}
-            <div className="col-span-3 min-h-0">
-              <div className="w-full min-h-0">
-                <Leaderboard />
-              </div>
+            <div className="col-span-3 min-h-0 flex flex-col">
+              <Leaderboard transparent />
             </div>
 
             {/* CENTER — Map + Throw */}
@@ -1018,46 +1075,17 @@ export default function WorldPage() {
               </div>
 
               <div className="relative shrink-0">
-                {/* Live Feed toggle button — floats absolutely above the panel */}
-                <div className="absolute -top-[34px] left-3 md:left-4 z-10">
-                  <button
-                    onClick={() => setLiveFeedOpen((v) => !v)}
-                    type="button"
-                    aria-label={liveFeedOpen ? "Close live feed" : "Open live feed"}
-                    className={`
-                      relative flex items-center gap-1.5 h-8 px-3 rounded-full
-                      backdrop-blur-xl border shadow-[0_4px_20px_rgba(0,0,0,0.08)]
-                      transition-all duration-200
-                      ${liveFeedOpen
-                        ? "bg-white/10 border-white/20 text-white/90"
-                        : "bg-white/[0.06] border-white/10 text-white/70 hover:bg-white/10 hover:text-white/90"
-                      }
-                    `}
-                  >
-                    <span className="relative flex w-2 h-2">
-                      <span className="absolute inline-flex w-full h-full rounded-full bg-green-400 opacity-75 animate-ping" />
-                      <span className="relative inline-flex w-2 h-2 rounded-full bg-green-500" />
-                    </span>
-                    <span className="text-[11px] font-semibold tracking-wide">Live</span>
-                    {liveFeedOpen ? (
-                      <span className="text-xs leading-none ml-0.5">✕</span>
-                    ) : (
-                      <svg className="w-3 h-3 ml-0.5 text-white/60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
-                      </svg>
-                    )}
-                  </button>
-                </div>
-                <div className="rounded-2xl bg-white/85 backdrop-blur-sm border border-[#E5E7EB] shadow-[0_4px_20px_rgba(0,0,0,0.04)] p-3 md:p-4">
+                <div className="rounded-2xl bg-white/[0.06] backdrop-blur-md border border-white/10 shadow-[0_8px_30px_rgba(0,0,0,0.18)] p-3 md:p-4">
                   <div className="flex flex-col md:flex-row md:items-center gap-3">
                     <div className="flex-1 min-w-0 flex items-center gap-2">
                       <DockObjectPicker
-                        objects={THROWABLE_OBJECTS}
+                        objects={displayObjects}
                         selectedId={selectedObject}
                         onSelect={setSelectedObject}
+                        onAddEmojiClick={() => setShowEmojiPicker(true)}
                       />
                     </div>
-                    <div className="hidden md:block w-px h-10 bg-gray-200" />
+                    <div className="hidden md:block w-px h-10 bg-white/10" />
                     <div className="flex items-center gap-2">
                       <input
                         type="text"
@@ -1077,14 +1105,14 @@ export default function WorldPage() {
                         placeholder="Reason (optional)"
                         maxLength={50}
                         disabled={!hasTarget}
-                        className="h-10 w-44 min-w-0 px-4 rounded-full bg-white border border-[#E5E7EB] text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#F97316] focus:ring-2 focus:ring-orange-100 disabled:opacity-50"
+                        className="h-10 w-44 min-w-0 px-4 rounded-full bg-white/10 backdrop-blur-md border border-white/15 text-sm text-white/90 placeholder-white/40 focus:outline-none focus:border-white/30 focus:ring-1 focus:ring-white/10 disabled:opacity-50"
                       />
                       <motion.button
                         ref={throwBtnRef}
                         whileTap={{ scale: 0.95 }}
                         onClick={() => handleThrow(selectedObject, reason)}
                   disabled={!hasTarget}
-                  className={`h-10 px-5 rounded-full bg-gradient-to-r from-orange-500 to-pink-500 text-white text-sm font-bold shadow-md hover:shadow-lg transition-shadow flex items-center gap-1.5 ${
+                  className={`h-10 px-5 rounded-full bg-tomato-gradient-r text-white text-sm font-bold shadow-md hover:shadow-lg transition-shadow flex items-center gap-1.5 ${
                     !hasTarget ? "opacity-60 cursor-not-allowed pointer-events-none" : ""
                   }`}
                 >
@@ -1098,16 +1126,21 @@ export default function WorldPage() {
             </div>
 
             {/* RIGHT — Live Feed */}
-            <div className="col-span-3 min-h-0">
-              <div className="w-full min-h-0">
-                <LiveFeed />
-              </div>
+            <div className="col-span-3 min-h-0 flex flex-col">
+              <LiveFeed />
             </div>
           </div>
         </div>
       </div>
 
       {/* Mobile below-fold leaderboard moved to fullscreen via the leaderboard button */}
+
+      {/* Emoji Picker Modal */}
+      <EmojiPickerModal
+        isOpen={showEmojiPicker}
+        onClose={() => setShowEmojiPicker(false)}
+        onEmojiSelect={handleEmojiSelect}
+      />
 
       {/* Create Profile Modal */}
       <CreateProfileModal

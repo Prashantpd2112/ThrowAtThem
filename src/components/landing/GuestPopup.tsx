@@ -40,11 +40,11 @@ export function GuestPopup({ isOpen, onClose, onEnter }: GuestPopupProps) {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
         >
-          <div className="text-5xl mb-4">🌍</div>
+          <div className="text-5xl mb-4">🍅</div>
           <h2 className="text-2xl md:text-3xl font-bold mb-2 text-white" style={{ fontFamily: "'Fredoka', cursive" }}>
             Welcome to ThrowAtThem!
           </h2>
-          <p className="text-gray-600 dark:text-gray-400 mb-6 text-sm">
+          <p className="text-gray-400 mb-6 text-sm">
             Choose your name and country, then jump into the fun!
           </p>
         </motion.div>
@@ -56,7 +56,7 @@ export function GuestPopup({ isOpen, onClose, onEnter }: GuestPopupProps) {
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.2 }}
         >
-          <label className="block text-sm font-semibold mb-2 text-gray-700 dark:text-Black-400">
+          <label className="block text-sm font-semibold mb-2 text-white">
             Your Nickname
             <span className="text-gray-400 font-normal ml-1">(optional)</span>
           </label>
@@ -67,7 +67,7 @@ export function GuestPopup({ isOpen, onClose, onEnter }: GuestPopupProps) {
               onChange={(e) => setNickname(e.target.value)}
               placeholder="e.g. SillyPanda42"
               maxLength={20}
-              className="w-full px-4 py-3 rounded-xl bg-white/80 dark:bg-white/5 border-1 border-gray-200 dark:border-black/18 focus:border-wt-orange dark:focus:border-wt-orange outline-none transition-colors text-gray-800 dark:text-black placeholder-gray-400"
+              className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-wt-orange outline-none transition-colors text-white placeholder:text-gray-400 caret-white"
               onKeyDown={(e) => e.key === "Enter" && handleEnter()}
             />
             <button
@@ -87,31 +87,30 @@ export function GuestPopup({ isOpen, onClose, onEnter }: GuestPopupProps) {
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.3 }}
         >
-          <label className="block text-sm font-semibold mb-2 text-gray-700 dark:text-Black-400">
+          <label className="block text-sm font-semibold mb-2 text-white">
             Your Country
           </label>
           <select
             value={country}
-            onChange={(e) => setCountry(e.target.value)}
-            className="
+            onChange={(e) => setCountry(e.target.value)}              className="
               w-full
               h-14
               rounded-xl
               border
-              border-gray-300
-              bg-gray-50
-              text-gray-900
+              border-white/10
+              bg-white/5
+              text-white
               font-medium
               px-4
               pr-10
               focus:outline-none
               focus:ring-2
-              focus:ring-orange-400
-              focus:border-orange-400
+              focus:ring-wt-orange
+              focus:border-wt-orange
               appearance-none
               "
             style={{
-              backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
+              backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%239CA3AF' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
               backgroundPosition: `right 0.75rem center`,
               backgroundRepeat: `no-repeat`,
               backgroundSize: `1.25rem`,
@@ -170,7 +169,7 @@ export function GuestPopup({ isOpen, onClose, onEnter }: GuestPopupProps) {
       <AnimatePresence>
         {isAnimating && (
           <motion.div
-            className="absolute inset-0 rounded-3xl bg-gradient-to-br from-wt-orange to-wt-pink flex items-center justify-center z-10"
+            className="absolute inset-0 rounded-3xl bg-tomato-gradient-br flex items-center justify-center z-10"
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 1.2 }}

@@ -72,6 +72,12 @@ export const THROWABLE_OBJECTS: ThrowableObject[] = [
 ];
 
 /**
+ * Prefix used for custom emoji object IDs.
+ * The actual emoji character is stored after this prefix in the ID.
+ */
+export const CUSTOM_EMOJI_PREFIX = "custom_emoji_";
+
+/**
  * Neutral fallback icon used when an unknown object id is encountered
  * (e.g. an older database record that referenced a deprecated object id).
  */
@@ -131,6 +137,20 @@ export const getObjectById = (id: string | null | undefined): ThrowableObject =>
     const mapped = THROWABLE_OBJECTS.find((obj) => obj.id === mappedId);
     if (mapped) return mapped;
   }
+  // Handle custom emoji IDs (e.g. "custom_emoji_🦖")
+  if (id.startsWith(CUSTOM_EMOJI_PREFIX)) {
+    const emoji = id.slice(CUSTOM_EMOJI_PREFIX.length);
+    if (emoji) {
+      return {
+        id,
+        emoji,
+        name: `Custom ${emoji}`,
+        description: `Custom emoji ${emoji}`,
+        color: "#FFCA28",
+        particleColor: "#FFD54F",
+      };
+    }
+  }
   return FALLBACK_OBJECT;
 };
 
@@ -138,6 +158,13 @@ export const getObjectById = (id: string | null | undefined): ThrowableObject =>
  * Convenience helper: returns just the emoji for a given object id.
  * Always returns a visible emoji (never undefined or "?").
  */
+/**
+ * Creates a throwable object ID for a custom emoji.
+ */
+export const makeCustomEmojiId = (emoji: string): string => {
+  return `${CUSTOM_EMOJI_PREFIX}${emoji}`;
+};
+
 export const getObjectEmoji = (id: string | null | undefined): string => {
   return getObjectById(id).emoji;
 };

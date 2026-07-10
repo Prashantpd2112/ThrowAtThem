@@ -203,8 +203,7 @@ export function CountryPicker({ isOpen, onClose, onSelect, selectedCode }: Count
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder="Search countries..."
-                  className="w-full h-10 pl-9 pr-3 rounded-xl bg-white/10 border border-white/15 text-sm text-white/90 placeholder-white/30 focus:outline-none focus:border-orange-400/40 focus:ring-1 focus:ring-orange-400/20 transition-all"
+                  placeholder="Search countries..."                   className="w-full h-10 pl-9 pr-3 rounded-xl bg-white/10 border border-white/15 text-sm text-white/90 placeholder-white/30 focus:outline-none focus:border-tomato-primary/40 focus:ring-1 focus:ring-tomato-primary/20 transition-all"
                 />
               </div>
             </div>
@@ -227,8 +226,7 @@ export function CountryPicker({ isOpen, onClose, onSelect, selectedCode }: Count
                       onClick={() => handleSelect(option)}
                       onMouseEnter={() => setHighlightedIndex(index)}
                       className={`w-full text-left px-5 py-2.5 text-sm flex items-center gap-3 transition-colors ${
-                        isSelected
-                          ? "text-white font-semibold bg-orange-500/15"
+                        isSelected                           ? "text-white font-semibold bg-tomato-primary/15"
                           : isHighlighted
                           ? "text-white bg-white/10"
                           : "text-white/65 hover:text-white hover:bg-white/5"
@@ -236,8 +234,7 @@ export function CountryPicker({ isOpen, onClose, onSelect, selectedCode }: Count
                     >
                       <span className="text-lg flex-shrink-0">{option.flag}</span>
                       <span className="flex-1 truncate">{option.name}</span>
-                      {isSelected && (
-                        <svg className="w-4 h-4 text-orange-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      {isSelected && (                         <svg className="w-4 h-4 text-tomato-primary flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                         </svg>
                       )}

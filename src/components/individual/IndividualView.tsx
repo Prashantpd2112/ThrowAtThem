@@ -58,7 +58,7 @@ export function IndividualView({ selectedProfile, onSelectProfile, selectedProfi
           {[0, 1, 2].map((i) => (
             <motion.div
               key={i}
-              className="w-2.5 h-2.5 bg-orange-500 rounded-full"
+              className="w-2.5 h-2.5 bg-tomato-primary rounded-full"
               animate={{ y: [0, -8, 0] }}
               transition={{ duration: 0.6, repeat: Infinity, delay: i * 0.15 }}
             />

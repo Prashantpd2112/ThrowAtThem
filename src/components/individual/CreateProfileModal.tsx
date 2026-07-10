@@ -339,8 +339,7 @@ export function CreateProfileModal({ isOpen, onClose, onSubmit, isSubmitting }: 
                 placeholder="https://example.com/avatar.jpg"
                 className={`w-full h-10 px-3.5 rounded-xl bg-white/10 border text-sm text-white/90 placeholder-white/30 focus:outline-none focus:ring-1 transition-all ${
                   imageUrlError || imageUrlStatus === "error"
-                    ? "border-red-400/40 focus:border-red-400/40 focus:ring-red-400/20"
-                    : "border-white/15 focus:border-orange-400/40 focus:ring-orange-400/20"
+                    ? "border-red-400/40 focus:border-red-400/40 focus:ring-red-400/20"                     : "border-white/15 focus:border-tomato-primary/40 focus:ring-tomato-primary/20"
                 }`}
               />
             </div>
@@ -377,8 +376,7 @@ export function CreateProfileModal({ isOpen, onClose, onSubmit, isSubmitting }: 
 
           {/* Full Name */}
           <div>
-            <label className="block text-[11px] font-semibold text-white/50 uppercase tracking-wider mb-1.5">
-              Full Name <span className="text-orange-400">*</span>
+            <label className="block text-[11px] font-semibold text-white/50 uppercase tracking-wider mb-1.5">               Full Name <span className="text-tomato-primary">*</span>
             </label>
             <input
               type="text"
@@ -386,15 +384,13 @@ export function CreateProfileModal({ isOpen, onClose, onSubmit, isSubmitting }: 
               onChange={(e) => setNickname(e.target.value)}
               placeholder="Enter your name"
               required
-              maxLength={50}
-              className="w-full h-10 px-3.5 rounded-xl bg-white/10 border border-white/15 text-sm text-white/90 placeholder-white/30 focus:outline-none focus:border-orange-400/40 focus:ring-1 focus:ring-orange-400/20 transition-all"
+              maxLength={50}               className="w-full h-10 px-3.5 rounded-xl bg-white/10 border border-white/15 text-sm text-white/90 placeholder-white/30 focus:outline-none focus:border-tomato-primary/40 focus:ring-1 focus:ring-tomato-primary/20 transition-all"
             />
           </div>
 
           {/* Profession */}
           <div>
-            <label className="block text-[11px] font-semibold text-white/50 uppercase tracking-wider mb-1.5">
-              Profession <span className="text-orange-400">*</span>
+            <label className="block text-[11px] font-semibold text-white/50 uppercase tracking-wider mb-1.5">               Profession <span className="text-tomato-primary">*</span>
             </label>
             <input
               type="text"
@@ -402,20 +398,17 @@ export function CreateProfileModal({ isOpen, onClose, onSubmit, isSubmitting }: 
               onChange={(e) => setProfession(e.target.value)}
               placeholder="e.g. Software Engineer"
               required
-              maxLength={50}
-              className="w-full h-10 px-3.5 rounded-xl bg-white/10 border border-white/15 text-sm text-white/90 placeholder-white/30 focus:outline-none focus:border-orange-400/40 focus:ring-1 focus:ring-orange-400/20 transition-all"
+              maxLength={50}               className="w-full h-10 px-3.5 rounded-xl bg-white/10 border border-white/15 text-sm text-white/90 placeholder-white/30 focus:outline-none focus:border-tomato-primary/40 focus:ring-1 focus:ring-tomato-primary/20 transition-all"
             />
           </div>
 
           {/* Country — Opens CountryPicker modal */}
           <div>
-            <label className="block text-[11px] font-semibold text-white/50 uppercase tracking-wider mb-1.5">
-              Country <span className="text-orange-400">*</span>
+            <label className="block text-[11px] font-semibold text-white/50 uppercase tracking-wider mb-1.5">               Country <span className="text-tomato-primary">*</span>
             </label>
             <button
               type="button"
-              onClick={() => setShowCountryPicker(true)}
-              className="w-full h-10 px-3.5 rounded-xl bg-white/10 border border-white/15 text-sm text-left text-white/90 focus:outline-none focus:border-orange-400/40 focus:ring-1 focus:ring-orange-400/20 transition-all flex items-center gap-2"
+              onClick={() => setShowCountryPicker(true)}               className="w-full h-10 px-3.5 rounded-xl bg-white/10 border border-white/15 text-sm text-left text-white/90 focus:outline-none focus:border-tomato-primary/40 focus:ring-1 focus:ring-tomato-primary/20 transition-all flex items-center gap-2"
             >
               {selectedCountry ? (
                 <>
@@ -447,8 +440,7 @@ export function CreateProfileModal({ isOpen, onClose, onSubmit, isSubmitting }: 
             </button>
             <button
               type="submit"
-              disabled={!canSubmit}
-              className="flex-1 h-10 rounded-xl bg-gradient-to-r from-orange-500 to-pink-500 text-sm font-bold text-white shadow-md hover:shadow-lg disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+              disabled={!canSubmit}               className="flex-1 h-10 rounded-xl bg-tomato-gradient-r text-sm font-bold text-white shadow-md hover:shadow-lg disabled:opacity-40 disabled:cursor-not-allowed transition-all"
             >
               {isSubmitting ? (
                 <span className="flex items-center justify-center gap-2">

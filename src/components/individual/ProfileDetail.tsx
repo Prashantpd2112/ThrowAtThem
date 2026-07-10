@@ -35,7 +35,9 @@ export function ProfileDetail({ profile, throwCount, index }: ProfileDetailProps
           )}
 
           {/* Avatar */}
-          <div className="w-[88px] h-[88px] md:w-[100px] md:h-[100px] rounded-full overflow-hidden mb-3.5 ring-3 ring-white/[0.10] flex items-center justify-center bg-gradient-to-br from-orange-400/20 via-pink-500/20 to-purple-500/20 shadow-[0_8px_24px_rgba(0,0,0,0.25)]">
+          <div
+            data-profile-avatar={profile.id}
+            className="w-[88px] h-[88px] md:w-[100px] md:h-[100px] rounded-full overflow-hidden mb-3.5 ring-3 ring-white/[0.10] flex items-center justify-center bg-gradient-to-br from-tomato-highlight/20 via-tomato-primary/20 to-tomato-deep/20 shadow-[0_8px_24px_rgba(0,0,0,0.25)]">
             {profile.profile_image ? (
               <img
                 src={profile.profile_image}

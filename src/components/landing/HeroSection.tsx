@@ -1,8 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Globe3D } from "./Globe3D";
-import { FloatingClouds } from "./FloatingClouds";
+import { TomatoAnimation } from "./TomatoAnimation";
 
 interface HeroSectionProps {
   onEnterClick: () => void;
@@ -10,24 +9,18 @@ interface HeroSectionProps {
 
 export function HeroSection({ onEnterClick }: HeroSectionProps) {
   return (
-    <div className="relative min-h-screen w-full overflow-hidden bg-gradient-to-b from-wt-blue via-wt-sky to-wt-cream dark:from-wt-dark dark:via-[#16213e] dark:to-[#1a1a2e]">
-      {/* Background Elements */}
-      <FloatingClouds />
-
-      {/* Gradient Orbs */}
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-wt-purple/20 rounded-full blur-[100px] animate-pulse" />
-      <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-wt-pink/20 rounded-full blur-[100px] animate-pulse" style={{ animationDelay: "1s" }} />
+    <div className="relative min-h-screen w-full overflow-hidden bg-[#03040A]">
 
       {/* Content - centered, Earth above, hero group shifted slightly up */}
       <div className="relative z-10 flex flex-col items-center justify-center min-h-screen px-4 md:px-8 pt-8 md:pt-12 pb-8">
-        {/* 3D Globe - horizontally centered with title */}
+        {/* Tomato Animation - horizontally centered */}
         <motion.div
-         className="flex items-center justify-center mx-auto w-52 h-52 md:w-64 md:h-64 lg:w-76 lg:h-76 mb-12 translate-y-0 translate-x-0"
+         className="flex items-center justify-center mx-auto w-64 h-64 md:w-80 md:h-80 lg:w-[420px] lg:h-[420px] mb-12 translate-y-0 translate-x-0"
           initial={{ opacity: 0, scale: 0.5 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 1.2, type: "spring", stiffness: 100 }}
         >
-          <Globe3D />
+          <TomatoAnimation />
         </motion.div>
 
         {/* Hero content group — shifted upward for balanced composition */}
@@ -40,7 +33,7 @@ export function HeroSection({ onEnterClick }: HeroSectionProps) {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.3 }}
         >
-          <span className="bg-gradient-to-r from-wt-orange via-wt-pink to-wt-purple bg-clip-text text-transparent">
+          <span className="text-tomato-gradient">
             ThrowAtThem
           </span>
         </motion.h1>
@@ -58,8 +51,7 @@ export function HeroSection({ onEnterClick }: HeroSectionProps) {
 
         {/* Enter Button */}
         <motion.button
-          className="group relative px-10 py-5 text-xl font-bold rounded-2xl text-white
-                     bg-gradient-to-r from-wt-orange via-orange-500 to-wt-pink
+          className="group relative px-10 py-5 text-xl font-bold rounded-2xl text-white bg-tomato-gradient-r
                      shadow-2xl shadow-wt-orange/30 hover:shadow-wt-pink/40
                      transition-all duration-300"
           initial={{ opacity: 0, y: 20 }}
@@ -79,7 +71,7 @@ export function HeroSection({ onEnterClick }: HeroSectionProps) {
             </motion.span>
           </span>
           {/* Glow effect */}
-          <span className="absolute inset-0 rounded-2xl bg-gradient-to-r from-wt-orange via-orange-500 to-wt-pink opacity-0 group-hover:opacity-100 blur-xl transition-opacity duration-300" />
+          <span className="absolute inset-0 rounded-2xl bg-tomato-gradient-r opacity-0 group-hover:opacity-100 blur-xl transition-opacity duration-300" />
         </motion.button>
         </div>
 

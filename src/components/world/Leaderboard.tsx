@@ -84,7 +84,7 @@ function LeaderboardRow({
         <RankDisplay rank={rank} transparent={transparent} />
 
         {/* Avatar */}
-        <div className="shrink-0 w-7 h-7 rounded-full overflow-hidden bg-gradient-to-br from-orange-400/20 via-pink-500/20 to-purple-500/20 ring-1 ring-white/10 flex items-center justify-center">
+        <div className="shrink-0 w-7 h-7 rounded-full overflow-hidden bg-gradient-to-br from-tomato-highlight/20 via-tomato-primary/20 to-tomato-deep/20 ring-1 ring-white/10 flex items-center justify-center">
           {entry.profile_image ? (
             <img
               src={entry.profile_image}
@@ -126,8 +126,8 @@ function LeaderboardRow({
           className={`shrink-0 inline-flex items-center justify-center gap-0.5 px-2 h-7 rounded-full text-[10px] font-semibold transition-all duration-150 ${
             isReasonOpen
               ? transparent
-                ? "bg-orange-500/30 text-orange-200 ring-1 ring-orange-400/30"
-                : "bg-orange-100 text-orange-700 ring-1 ring-orange-200"
+                ? "bg-tomato-primary/30 text-[#FF8A75] ring-1 ring-tomato-primary/30"
+                : "bg-[rgba(239,68,68,0.10)] text-tomato-deep ring-1 ring-[rgba(239,68,68,0.20)]"
               : transparent
                 ? "bg-white/15 text-white/80 hover:bg-white/20 hover:text-white"
                 : "bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900"
@@ -144,8 +144,8 @@ function LeaderboardRow({
           className={`shrink-0 inline-flex items-center justify-center gap-0.5 px-2 h-7 rounded-full text-[10px] font-semibold transition-all duration-150 ${
             isThrowsOpen
               ? transparent
-                ? "bg-orange-500/30 text-orange-200 ring-1 ring-orange-400/30"
-                : "bg-orange-100 text-orange-700 ring-1 ring-orange-200"
+                ? "bg-tomato-primary/30 text-[#FF8A75] ring-1 ring-tomato-primary/30"
+                : "bg-[rgba(239,68,68,0.10)] text-tomato-deep ring-1 ring-[rgba(239,68,68,0.20)]"
               : transparent
                 ? "bg-white/15 text-white/80 hover:bg-white/20 hover:text-white"
                 : "bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900"
@@ -254,7 +254,7 @@ function EmptyState({ transparent }: { transparent: boolean }) {
   return (
     <div className="flex flex-col items-center justify-center py-10 px-6 text-center">
       <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-3 ${
-        transparent ? "bg-white/[0.06]" : "bg-orange-50"
+        transparent ? "bg-white/[0.06]" : "bg-[rgba(239,68,68,0.08)]"
       }`}>
         <span className="text-xl">🏆</span>
       </div>
@@ -316,10 +316,10 @@ export function Leaderboard({ transparent }: { transparent?: boolean } = {}) {
   }, [individualLeaderboard]);
 
   return (
-    <div className={`relative flex flex-col overflow-hidden rounded-xl ${
+    <div className={`relative flex flex-col h-full min-h-0 rounded-2xl border overflow-hidden ${
       transparent
-        ? ""
-        : "bg-white border border-[#E5E7EB] shadow-[0_2px_12px_rgba(0,0,0,0.04)]"
+        ? "bg-white/[0.04] backdrop-blur-md border-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.15)]"
+        : "bg-white border-[#E5E7EB] shadow-[0_2px_12px_rgba(0,0,0,0.04)]"
     }`}>
       {/* ── Compact Header ── */}
       <div className={`shrink-0 flex items-center justify-between px-3 py-2 ${
@@ -345,7 +345,7 @@ export function Leaderboard({ transparent }: { transparent?: boolean } = {}) {
               className={`px-2 py-0.5 rounded text-[9px] font-semibold transition-all duration-150 ${
                 activePeriod === p.value
                   ? transparent
-                    ? "bg-orange-500/30 text-orange-300"
+                    ? "bg-tomato-primary/30 text-[#FF8A75]"
                     : "bg-white text-gray-900 shadow-sm"
                   : transparent
                     ? "text-white/40 hover:text-white/70"

@@ -1,4 +1,4 @@
-# 🌍 ThrowAtThem
+# 🍅 ThrowAtThem
 
 A fun, cartoon-style world where anyone can anonymously throw silly objects at countries around the globe. No login, no signup — just pure entertainment!
 

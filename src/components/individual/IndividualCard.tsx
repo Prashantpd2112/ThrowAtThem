@@ -34,7 +34,9 @@ export function IndividualCard({ profile, rank, index, onClick }: IndividualCard
       className="group relative rounded-2xl bg-white/[0.06] backdrop-blur-md border border-white/[0.10] shadow-[0_8px_30px_rgba(0,0,0,0.18)] hover:bg-white/[0.09] hover:border-white/[0.18] hover:shadow-[0_12px_40px_rgba(0,0,0,0.25)] transition-all duration-300 p-5 flex flex-col items-center text-center cursor-pointer"
     >
       {/* Avatar circle */}
-      <div className="w-[72px] h-[72px] rounded-full overflow-hidden mb-3.5 ring-2 ring-white/[0.08] group-hover:ring-orange-400/30 transition-all duration-300 flex items-center justify-center bg-gradient-to-br from-orange-400/20 via-pink-500/20 to-purple-500/20">
+      <div
+        data-profile-avatar={profile.id}
+        className="w-[72px] h-[72px] rounded-full overflow-hidden mb-3.5 ring-2 ring-white/[0.08] group-hover:ring-tomato-primary/30 transition-all duration-300 flex items-center justify-center bg-gradient-to-br from-tomato-highlight/20 via-tomato-primary/20 to-tomato-deep/20">
         {profile.profile_image ? (
           <img
             src={profile.profile_image}

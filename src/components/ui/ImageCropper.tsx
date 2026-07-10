@@ -114,16 +114,14 @@ export function ImageCropper({ imageSrc, onCropComplete, onCancel }: ImageCroppe
                 [&::-webkit-slider-thumb]:h-4
                 [&::-webkit-slider-thumb]:rounded-full
                 [&::-webkit-slider-thumb]:bg-gradient-to-r
-                [&::-webkit-slider-thumb]:from-orange-500
-                [&::-webkit-slider-thumb]:to-pink-500
+                [&::-webkit-slider-thumb]:bg-tomato-primary
                 [&::-webkit-slider-thumb]:shadow-md
                 [&::-webkit-slider-thumb]:cursor-pointer
                 [&::-moz-range-thumb]:w-4
                 [&::-moz-range-thumb]:h-4
                 [&::-moz-range-thumb]:rounded-full
                 [&::-moz-range-thumb]:bg-gradient-to-r
-                [&::-moz-range-thumb]:from-orange-500
-                [&::-moz-range-thumb]:to-pink-500
+                [&::-moz-range-thumb]:bg-tomato-primary
                 [&::-moz-range-thumb]:border-0
                 [&::-moz-range-thumb]:shadow-md
                 [&::-moz-range-thumb]:cursor-pointer"
@@ -146,7 +144,7 @@ export function ImageCropper({ imageSrc, onCropComplete, onCancel }: ImageCroppe
           <button
             type="button"
             onClick={handleUseImage}
-            className="flex-1 h-10 rounded-xl bg-gradient-to-r from-orange-500 to-pink-500 text-sm font-bold text-white shadow-md hover:shadow-lg transition-all"
+            className="flex-1 h-10 rounded-xl bg-tomato-gradient-r text-sm font-bold text-white shadow-md hover:shadow-lg transition-all"
           >
             Use Image
           </button>

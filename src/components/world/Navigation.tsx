@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import { SearchBar } from "@/components/world/SearchBar";
+import { CreateButton } from "@/components/individual/CreateButton";
 
 interface NavigationProps {
   nickname: string;
@@ -10,6 +11,9 @@ interface NavigationProps {
   onLogout: () => void;
   showBackButton?: boolean;
   onBackFromLeaderboard?: () => void;
+  searchQuery?: string;
+  onSearchChange?: (query: string) => void;
+  onCreateClick?: () => void;
 }
 
 export function Navigation({
@@ -19,10 +23,13 @@ export function Navigation({
   onLogout,
   showBackButton,
   onBackFromLeaderboard,
+  searchQuery,
+  onSearchChange,
+  onCreateClick,
 }: NavigationProps) {
   return (
     <nav
-      className="sticky top-0 z-30 bg-white border-b border-[#E5E7EB] shadow-[0_1px_2px_rgba(0,0,0,0.04),0_4px_12px_rgba(0,0,0,0.03)] max-md:h-16 md:h-[70px] max-md:bg-transparent max-md:backdrop-blur-md max-md:border-b-white/10 max-md:shadow-[0_1px_2px_rgba(0,0,0,0.15),0_4px_12px_rgba(0,0,0,0.08)]"
+      className="sticky top-0 z-30 bg-transparent backdrop-blur-md border-b border-b-white/10 shadow-[0_1px_2px_rgba(0,0,0,0.15),0_4px_12px_rgba(0,0,0,0.08)] max-md:h-16 md:h-[70px]"
       style={{ paddingTop: "env(safe-area-inset-top, 0px)" } as React.CSSProperties}
     >
       <div className="h-full max-w-[1600px] mx-auto max-md:px-4 md:px-6 flex items-center max-md:gap-0 md:gap-5">
@@ -46,27 +53,30 @@ export function Navigation({
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
           >
-            <div className="w-9 h-9 shrink-0 overflow-hidden rounded-full flex items-center justify-center bg-gradient-to-br from-orange-400 to-pink-500 shadow-sm">
-              <span className="text-white text-base leading-none">🌍</span>
+            <div className="flex items-center gap-1.5 max-md:hidden">
+              <span className="text-2xl leading-none">🍅</span>
             </div>
             <div className="flex flex-col leading-tight max-md:hidden">
               <span
-                className="text-[15px] font-bold bg-gradient-to-r from-orange-500 to-pink-500 bg-clip-text text-transparent"
+                className="text-[15px] font-bold text-tomato-gradient"
                 style={{ fontFamily: "'Fredoka', cursive" }}
               >
                 ThrowAtThem
               </span>
-              <span className="text-[10px] font-medium text-gray-500 -mt-0.5">
-                Throw fun at the world
-              </span>
+            </div>
+            {/* Mobile: just the tomato */}
+            <div className="md:hidden w-11 h-11 shrink-0 overflow-hidden flex items-center justify-center">
+              <span className="text-2xl leading-none">🍅</span>
             </div>
           </motion.a>
         )}        {/* Search - center, desktop only */}
           <div className="hidden md:flex flex-1 justify-center min-w-0">
             <div className="relative w-full max-w-2xl">
               <SearchBar
-                onChange={() => {}}
+                value={searchQuery}
+                onChange={onSearchChange || (() => {})}
                 viewMode="individual"
+                variant="glass"
               />
             </div>
           </div>
@@ -75,23 +85,28 @@ export function Navigation({
         <div className="flex items-center max-md:gap-1.5 md:gap-2.5 shrink-0 max-md:ml-auto">
           {/* Online counter */}
           <div
-            className="group flex items-center rounded-full border border-[#E5E7EB] bg-white shadow-sm overflow-hidden max-md:h-11 md:h-9 cursor-default transition-colors duration-200 hover:border-green-200 max-md:bg-white/10 max-md:border-white/15 max-md:hover:border-green-400/30"
+            className="group flex items-center rounded-full border border-white/15 bg-white/10 shadow-sm overflow-hidden max-md:h-11 md:h-9 cursor-default transition-colors duration-200 hover:border-green-400/30"
             title={`${onlineCount} players online`}
             aria-label={`${onlineCount} players online`}
           >
             <div className="flex items-center gap-1.5 pl-3 pr-2.5 h-full">
               <span className="inline-block w-2 h-2 rounded-full bg-green-500 shrink-0" />
-              <span className="text-xs font-bold text-gray-900 tabular-nums max-md:text-white/90">{onlineCount}</span>
+              <span className="text-xs font-bold text-white/90 tabular-nums">{onlineCount}</span>
             </div>
-            <span className="text-xs font-semibold text-gray-500 max-w-0 overflow-hidden whitespace-nowrap pr-0 group-hover:max-w-[60px] group-hover:pr-3.5 transition-all duration-300 ease-out max-md:text-white/50">
+            <span className="text-xs font-semibold text-white/50 max-w-0 overflow-hidden whitespace-nowrap pr-0 group-hover:max-w-[60px] group-hover:pr-3.5 transition-all duration-300 ease-out">
               online
             </span>
           </div>
 
+          {/* Create Card button — desktop only, between online counter and player card */}
+          <div className="max-md:hidden">
+            <CreateButton onClick={() => onCreateClick?.()} />
+          </div>
+
           {/* Player card */}
-          <div className="flex items-center gap-2.5 max-md:pl-2 max-md:pr-2.5 md:pl-2.5 md:pr-3 max-md:h-11 md:h-9 rounded-xl bg-white border border-[#E5E7EB] shadow-sm max-md:bg-white/10 max-md:border-white/15">
+          <div className="flex items-center gap-2.5 max-md:pl-2 max-md:pr-2.5 md:pl-2.5 md:pr-3 max-md:h-11 md:h-9 rounded-xl bg-white/10 border border-white/15 shadow-sm">
             <span className="text-base leading-none shrink-0">{countryFlag}</span>
-            <span className="text-[13px] font-bold text-gray-900 truncate max-w-[140px] leading-none max-md:text-white/90">
+            <span className="text-[13px] font-bold text-white/90 truncate max-w-[140px] leading-none">
               {nickname}
             </span>
           </div>
@@ -99,12 +114,12 @@ export function Navigation({
           {/* Logout button */}
           <motion.button
             onClick={onLogout}
-            className="group flex items-center rounded-full border border-[#E5E7EB] bg-white shadow-sm overflow-hidden max-md:h-11 md:h-9 transition-colors duration-300 hover:bg-red-50 hover:border-red-200 max-md:bg-white/10 max-md:border-white/15 max-md:hover:bg-red-500/20 max-md:hover:border-red-400/30"
+            className="group flex items-center rounded-full border border-white/15 bg-white/10 shadow-sm overflow-hidden max-md:h-11 md:h-9 transition-colors duration-300 hover:bg-red-500/20 hover:border-red-400/30"
             whileTap={{ scale: 0.96 }}
             title="Logout"
             aria-label="Logout"
           >
-            <span className="flex items-center justify-center max-md:w-11 md:w-9 h-full text-gray-500 group-hover:text-red-500 transition-colors duration-300 shrink-0 max-md:text-white/60 max-md:group-hover:text-red-400">
+            <span className="flex items-center justify-center max-md:w-11 md:w-9 h-full text-white/60 group-hover:text-red-400 transition-colors duration-300 shrink-0">
               <svg className="w-[15px] h-[15px]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path
                   strokeLinecap="round"
@@ -114,7 +129,7 @@ export function Navigation({
                 />
               </svg>
             </span>
-            <span className="text-xs font-semibold text-gray-500 group-hover:text-red-500 max-w-0 overflow-hidden whitespace-nowrap pr-0 group-hover:max-w-[70px] group-hover:pr-4 transition-all duration-300 ease-out max-md:text-white/50 max-md:group-hover:text-red-400">
+            <span className="text-xs font-semibold text-white/50 group-hover:text-red-400 max-w-0 overflow-hidden whitespace-nowrap pr-0 group-hover:max-w-[70px] group-hover:pr-4 transition-all duration-300 ease-out">
               Logout
             </span>
           </motion.button>
