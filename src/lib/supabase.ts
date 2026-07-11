@@ -183,6 +183,13 @@ export const getGuestById = async (id: string): Promise<DbGuest | null> => {
 };
 
 // ── Throw Operations ──
+
+/**
+ * Submits a throw via the server-side RPC.
+ * The RPC atomically inserts the throw record, increments
+ * individual_profiles.total_throws, and upserts profile_object_counts.
+ * All counting happens in PostgreSQL — never in JavaScript.
+ */
 export const insertThrow = async (throwData: {
   guest_id: string;
   nickname: string;
@@ -193,24 +200,15 @@ export const insertThrow = async (throwData: {
   target_profile_id?: string | null;
 }): Promise<boolean> => {
   const client = getClient();
-  const record: Record<string, any> = {
-    guest_id: throwData.guest_id,
-    nickname: throwData.nickname,
-    thrower_country: throwData.thrower_country,
-    target_country: throwData.target_country,
-    object: throwData.object,
-    reason: throwData.reason || "",
-  };
-  if (throwData.target_profile_id) {
-    record.target_profile_id = throwData.target_profile_id;
-  }
-  console.log('[DEBUG insertThrow] final record payload:', JSON.stringify(record));
-  const { error } = await client.from("throws").insert(record);
-  if (error) {
-    console.log('[DEBUG insertThrow] Supabase error:', error);
-  } else {
-    console.log('[DEBUG insertThrow] SUCCESS - target_profile_id in payload:', record.target_profile_id || 'MISSING');
-  }
+  const { error } = await client.rpc("submit_throw", {
+    p_guest_id: throwData.guest_id,
+    p_nickname: throwData.nickname,
+    p_thrower_country: throwData.thrower_country,
+    p_target_country: throwData.target_country,
+    p_object: throwData.object,
+    p_reason: throwData.reason || "",
+    p_target_profile_id: throwData.target_profile_id || null,
+  });
   if (error) {
     throw error;
   }
@@ -228,31 +226,25 @@ export const fetchRecentThrows = async (limit = 50): Promise<SupabaseThrow[]> =>
   return (data || []) as SupabaseThrow[];
 };
 
-// Returns the total number of throws stored in the database (all-time).
-// Uses a HEAD-only count query so no row data is transferred.
+// Returns the sum of all profile total_throws.
+// Uses the pre-computed total_throws column via a server-side RPC.
 export const fetchTotalThrowCount = async (): Promise<number> => {
   const client = getClient();
-  const { count, error } = await client
-    .from("throws")
-    .select("*", { count: "exact", head: true });
+  const { data, error } = await client.rpc("get_total_throw_count");
   if (error) throw error;
-  return typeof count === "number" ? count : 0;
+  return typeof data === "number" ? data : 0;
 };
 
 // ── Profile Throw Rankings ──
 
+/** Returns a map of profile_id → total_throws using the pre-computed column. */
 export const fetchProfileThrowCounts = async (): Promise<Record<string, number>> => {
   const client = getClient();
-  const { data, error } = await client
-    .from("throws")
-    .select("target_profile_id")
-    .not("target_profile_id", "is", null);
+  const { data, error } = await client.rpc("get_profile_throw_counts");
   if (error) throw error;
   const counts: Record<string, number> = {};
-  (data as { target_profile_id: string }[]).forEach((t) => {
-    if (t.target_profile_id) {
-      counts[t.target_profile_id] = (counts[t.target_profile_id] || 0) + 1;
-    }
+  (data as { profile_id: string; total_throws: number }[] || []).forEach((row) => {
+    counts[row.profile_id] = row.total_throws;
   });
   return counts;
 };
